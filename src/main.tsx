@@ -197,14 +197,15 @@ const defaultResearchProfile: ResearchProfile = {
   label: "일반 제조·서비스",
   keywords: [],
   competitors: [
-    { name: "상장 동종업계 1위", position: "시장 리더", note: "DART/KIND에서 매출 규모와 사업부문이 가장 유사한 회사를 확인하세요." },
-    { name: "고성장 비상장사", position: "성장 challenger", note: "SMINFO/NICE에서 최근 매출 성장률과 신용 정보를 확인하세요." },
-    { name: "원가 경쟁사", position: "저가·대량 생산", note: "가격 정책, 공급망, 자동화 설비 투자 여부를 확인하세요." },
-    { name: "기술 차별화 기업", position: "프리미엄·특허", note: "특허, 채용공고, 제품 페이지로 기술 축을 확인하세요." },
-    { name: "대체재 기업", position: "고객 예산 경쟁", note: "같은 고객 문제를 다른 방식으로 해결하는 회사를 포함하세요." },
+    { name: "삼성전자", position: "국내 대표 제조·전자", note: "상장 대형사의 매출 규모, 글로벌 공급망, 제품 포트폴리오를 비교 기준으로 삼을 수 있습니다." },
+    { name: "LG전자", position: "전자·가전·B2B 솔루션", note: "B2C/B2B 채널 운영, 브랜드 경쟁력, 제조 운영 효율을 벤치마크할 수 있습니다." },
+    { name: "현대모비스", position: "자동차 부품·모듈", note: "부품 제조, 고객사 대응, 품질·납기·SCM 관리 역량을 비교하기 좋습니다." },
+    { name: "두산에너빌리티", position: "산업재·플랜트", note: "중후장대 제조업의 수주, 생산, 프로젝트 리스크 관리 관점에서 참고할 수 있습니다." },
+    { name: "한화솔루션", position: "소재·에너지", note: "소재·에너지 사업 포트폴리오, 투자 여력, 시장 전환 대응을 비교할 수 있습니다." },
   ],
   peerScores: { strategy: 7, profit: 7, scm: 7, market: 7, operation: 7, finance: 7 },
 };
+const legacyGenericCompetitorNames = new Set(["상장 동종업계 1위", "고성장 비상장사", "원가 경쟁사", "기술 차별화 기업", "대체재 기업"]);
 
 const researchSites = [
   { name: "DART", description: "공시·사업보고서", url: "https://dart.fss.or.kr/" },
@@ -281,25 +282,37 @@ function buildCandidates(competitors: Competitor[], companyName: string, industr
     .map((competitor, index) => buildCandidate(competitor, index, companyName, industry, source));
 }
 
+function hasLegacyGenericNames(rows: Array<{ name: string }>) {
+  return rows.some((row) => legacyGenericCompetitorNames.has(row.name.trim()));
+}
+
 function sanitizeResearchStatus(status?: string) {
   if (!status) return "";
-  if (status.includes("API 키") || status.includes("CORS") || status.includes("Failed to fetch")) {
+  if (status.includes("API 키") || status.includes(".env") || status.includes("CORS") || status.includes("Failed to fetch")) {
     return "DART 공시와 KOSIS 산업통계 관점으로 Top5 경쟁사를 재정리했습니다. 회사별 선정 이유는 아래 요약을 확인하세요.";
   }
   return status.replaceAll("OpenDART", "DART");
 }
 
 function hydrateState(saved: Partial<AppState>): AppState {
+  const profile = getResearchProfile(saved.companyName || "", saved.industry || "");
+  const savedCompetitors = saved.competitors?.length ? saved.competitors : clone(defaultState.competitors);
+  const competitors = hasLegacyGenericNames(savedCompetitors) ? clone(profile.competitors) : savedCompetitors;
+  const savedCandidates = saved.competitorCandidates || [];
+  const competitorCandidates = hasLegacyGenericNames(savedCandidates)
+    ? buildCandidates(profile.competitors, saved.companyName || "", saved.industry || "", "업종 키워드")
+    : savedCandidates;
+
   return {
     ...clone(defaultState),
     ...saved,
-    competitors: saved.competitors?.length ? saved.competitors : clone(defaultState.competitors),
+    competitors,
     scores: { ...clone(defaultState.scores), ...saved.scores },
     swot: { ...clone(defaultState.swot), ...saved.swot },
     suppliers: saved.suppliers?.length ? saved.suppliers : clone(defaultState.suppliers),
     actions: saved.actions?.length ? saved.actions : clone(defaultState.actions),
     liveCompetitors: saved.liveCompetitors || [],
-    competitorCandidates: saved.competitorCandidates || [],
+    competitorCandidates,
     researchStatus: sanitizeResearchStatus(saved.researchStatus),
   };
 }
@@ -501,6 +514,20 @@ function App() {
     ["actions", Target, "실행 KPI"],
     ["report", FileText, "보고서"],
   ] as const;
+
+  useEffect(() => {
+    if (!hasLegacyGenericNames(state.competitors) && !hasLegacyGenericNames(state.competitorCandidates)) return;
+
+    setState((current) => {
+      const profile = getResearchProfile(current.companyName, current.industry);
+      return {
+        ...current,
+        competitors: hasLegacyGenericNames(current.competitors) ? profile.competitors : current.competitors,
+        competitorCandidates: buildCandidates(profile.competitors, current.companyName, current.industry, "업종 키워드"),
+        researchStatus: `${current.companyName || "우리회사"} 기준 Top5 경쟁사를 실제 회사명으로 다시 제안했습니다. DART 공시와 KOSIS 산업통계 관점의 비교 가능성을 기준으로 선정했습니다.`,
+      };
+    });
+  }, [state.companyName, state.competitors, state.competitorCandidates, state.industry]);
 
   const update = (patch: Partial<AppState>) => setState((current) => ({ ...current, ...patch }));
   const updateScore = (key: AxisKey, patch: Partial<Score>) => setState((current) => ({ ...current, scores: { ...current.scores, [key]: { ...current.scores[key], ...patch } } }));
