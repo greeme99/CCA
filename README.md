@@ -15,6 +15,8 @@ VITE_KOSIS_API_KEY=발급받은_KOSIS_키
 
 개발 서버는 `.env` 키를 사용해 `/api/opendart/list`, `/api/opendart/company`, `/api/kosis/proxy` 로컬 프록시를 제공합니다. 키를 수정한 뒤에는 서버를 재시작해야 합니다.
 
+GitHub Pages 배포판은 브라우저 CORS 제한을 피하기 위해 GitHub Actions에서 OpenDART 데이터를 미리 조회해 `public/data/opendart-companies.json` 정적 캐시로 생성합니다. API 키는 GitHub Actions Secret에만 저장하고 배포 번들에는 포함하지 않습니다.
+
 ```bash
 npm install
 npm run dev -- --host 127.0.0.1 --port 5173
@@ -25,7 +27,8 @@ npm run dev -- --host 127.0.0.1 --port 5173
 ## 주요 기능
 
 - 회사명, 산업, 분석 목적, 기간 입력
-- OpenDART API 키 기반 실시간 공시목록/회사개황 조회
+- 로컬 개발 환경의 OpenDART 실시간 공시목록/회사개황 조회
+- GitHub Pages 배포 환경의 OpenDART 정적 캐시 기반 경쟁사 확인
 - 회사명 기준 Top5 경쟁사 제안과 선정사유 표시
 - 수기 입력 경쟁사 기반 경쟁력 비교 자동 적용
 - 분석 목적, 기간, 경쟁사 벤치마크 입력
