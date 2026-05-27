@@ -331,6 +331,13 @@ async function resolveLiveCompetitors(competitors: Competitor[], apiKey: string)
   }).map((competitor) => ({ competitor, liveCompany: liveCompanies.find((company) => isCompanyNameMatch(competitor.name, company.corpName)) }));
 }
 
+async function resolveLiveCompany(companyName: string, apiKey: string) {
+  if (!companyName.trim()) return undefined;
+  const corpCodes = await fetchOpenDartCompanies(apiKey);
+  const company = corpCodes.find((corpCode) => isCompanyNameMatch(companyName, corpCode.corpName));
+  return company ? fetchOpenDartCompanyOverview(apiKey, company) : undefined;
+}
+
 function getKosisAxisWeights(industry: string, purpose: string): Record<AxisKey, number> {
   const target = `${industry} ${purpose}`.toLowerCase();
   const weights: Record<AxisKey, number> = { strategy: 0, profit: 0, scm: 0, market: 0, operation: 0, finance: 0 };
@@ -367,11 +374,42 @@ function getKosisAxisWeights(industry: string, purpose: string): Record<AxisKey,
   return weights;
 }
 
-function buildDartKosisPeerScores(
+function getOwnCompanyAxisAdjustment(axisKey: AxisKey, industry: string, purpose: string) {
+  const target = `${industry} ${purpose}`.toLowerCase();
+  const adjustments: Record<AxisKey, number> = {
+    strategy: -1,
+    profit: -1,
+    scm: -1,
+    market: -1,
+    operation: -1,
+    finance: -1,
+  };
+
+  if ((target.includes("pba") || target.includes("pcb") || target.includes("전자") || target.includes("부품")) && (axisKey === "scm" || axisKey === "operation")) {
+    return 0;
+  }
+  if (target.includes("시장") && (axisKey === "market" || axisKey === "strategy")) {
+    return 0;
+  }
+  if (target.includes("scm") && (axisKey === "scm" || axisKey === "operation")) {
+    return 0;
+  }
+  if (target.includes("원가") && (axisKey === "profit" || axisKey === "operation")) {
+    return 0;
+  }
+  if (target.includes("m&a") && (axisKey === "finance" || axisKey === "strategy")) {
+    return 0;
+  }
+
+  return adjustments[axisKey];
+}
+
+function buildDartKosisScores(
   currentScores: Record<AxisKey, Score>,
   profile: ResearchProfile,
   competitors: Competitor[],
   liveCompanies: LiveCompany[],
+  ownCompany: LiveCompany | undefined,
   companyName: string,
   industry: string,
   purpose: string,
@@ -379,17 +417,21 @@ function buildDartKosisPeerScores(
   const competitorNames = competitors.map((competitor) => competitor.name).filter(Boolean).join(", ") || "Top5 경쟁사";
   const liveBoost = Math.min(1, Math.floor(liveCompanies.length / 2));
   const coverageBoost = Math.min(1, Math.floor(Math.max(1, competitors.length) / 4));
+  const ownLiveBoost = ownCompany ? 1 : 0;
   const kosisWeights = getKosisAxisWeights(industry, purpose);
   const sourceLabel = liveCompanies.length ? `DART ${isLocalHost ? "공시목록/회사개황" : "배포 캐시"} ${liveCompanies.length}개 매칭` : "DART 직접 매칭 없음";
+  const ownSourceLabel = ownCompany ? `DART ${isLocalHost ? "회사개황" : "배포 캐시"} 확인` : "회사명 직접 매칭 없음";
 
   return Object.fromEntries(
     axes.map((axis) => {
       const kosisBoost = kosisWeights[axis.key];
       const profileScore = profile.peerScores[axis.key];
       const nextPeer = Math.min(10, Math.max(1, profileScore + coverageBoost + liveBoost + kosisBoost));
-      const note = `${competitorNames} 기준 ${axis.label} 경쟁사 평균을 ${nextPeer}점으로 산정했습니다. 근거: ${sourceLabel}, KOSIS ${industry || profile.label} 업종 관점, 분석 목적 ${purpose}. ${companyName || "우리회사"}의 실제 내부 지표 입력 후 보정하세요.`;
+      const ownAdjustment = getOwnCompanyAxisAdjustment(axis.key, industry, purpose);
+      const nextOwn = Math.min(10, Math.max(1, profileScore + ownAdjustment + ownLiveBoost + Math.min(1, kosisBoost)));
+      const note = `${companyName || "우리회사"} ${axis.label} 점수는 ${nextOwn}점으로 산정했습니다. 근거: ${ownSourceLabel}, KOSIS ${industry || profile.label} 업종 관점, 분석 목적 ${purpose}. ${competitorNames} 기준 경쟁사 평균은 ${nextPeer}점입니다. 근거: ${sourceLabel}. 내부 실적 지표 입력 후 보정하세요.`;
 
-      return [axis.key, { ...currentScores[axis.key], peer: nextPeer, note }];
+      return [axis.key, { ...currentScores[axis.key], own: nextOwn, peer: nextPeer, note }];
     }),
   ) as Record<AxisKey, Score>;
 }
@@ -735,11 +777,13 @@ function App() {
       const liveResults = canUseDartData ? await resolveLiveCompetitors(baseCompetitors, openDartKey) : [];
       const nextCompetitors = liveResults.length ? liveResults.map((result) => result.competitor) : baseCompetitors;
       const liveCompanies = liveResults.map((result) => result.liveCompany).filter(Boolean) as LiveCompany[];
-      const nextPeerScores = buildDartKosisPeerScores(
+      const ownCompany = canUseDartData ? await resolveLiveCompany(state.companyName, openDartKey) : undefined;
+      const nextScores = buildDartKosisScores(
         state.scores,
         researchProfile,
         nextCompetitors,
         liveCompanies,
+        ownCompany,
         state.companyName,
         state.industry,
         state.purpose,
@@ -750,10 +794,10 @@ function App() {
         competitors: nextCompetitors,
         liveCompetitors: liveCompanies,
         competitorCandidates: buildCandidates(nextCompetitors, current.companyName, current.industry, canUseDartData ? "DART/KOSIS" : "업종 키워드"),
-        scores: nextPeerScores,
+        scores: nextScores,
         researchStatus: liveCompanies.length
-          ? `${current.companyName || "우리회사"} 기준 경쟁력 비교를 완료했습니다. DART ${isLocalHost ? "공시목록/회사개황" : "배포 캐시"}에서 ${liveCompanies.length}개 경쟁사를 확인했고, KOSIS ${current.industry || researchProfile.label} 업종 관점으로 6축 경쟁사 평균을 보정했습니다.`
-          : `${current.companyName || "우리회사"} 기준 경쟁력 비교를 완료했습니다. DART 직접 매칭이 부족해 입력 경쟁사와 KOSIS ${current.industry || researchProfile.label} 업종 관점으로 6축 경쟁사 평균을 산정했습니다.`,
+          ? `${current.companyName || "우리회사"} 기준 경쟁력 비교를 완료했습니다. DART ${isLocalHost ? "공시목록/회사개황" : "배포 캐시"}에서 경쟁사 ${liveCompanies.length}개${ownCompany ? "와 우리회사" : ""}를 확인했고, KOSIS ${current.industry || researchProfile.label} 업종 관점으로 우리회사와 경쟁사 평균을 함께 보정했습니다.`
+          : `${current.companyName || "우리회사"} 기준 경쟁력 비교를 완료했습니다. DART 직접 매칭이 부족해 회사명·산업·분석목적과 KOSIS ${current.industry || researchProfile.label} 업종 관점으로 우리회사와 경쟁사 평균을 산정했습니다.`,
         actions: current.actions.some((action) => action.task)
           ? current.actions
           : [
@@ -762,11 +806,12 @@ function App() {
             ],
       }));
     } catch (error) {
-      const nextPeerScores = buildDartKosisPeerScores(
+      const nextScores = buildDartKosisScores(
         state.scores,
         researchProfile,
         baseCompetitors,
         [],
+        undefined,
         state.companyName,
         state.industry,
         state.purpose,
@@ -776,8 +821,8 @@ function App() {
         ...current,
         competitors: baseCompetitors,
         competitorCandidates: buildCandidates(baseCompetitors, current.companyName, current.industry, "업종 키워드"),
-        scores: nextPeerScores,
-        researchStatus: `${error instanceof Error ? error.message : "DART/KOSIS 비교 조회 실패"} KOSIS 업종 관점과 입력된 경쟁사 정보로 6축 경쟁사 평균을 산정했습니다.`,
+        scores: nextScores,
+        researchStatus: `${error instanceof Error ? error.message : "DART/KOSIS 비교 조회 실패"} KOSIS 업종 관점과 입력된 회사/경쟁사 정보로 6축 점수를 산정했습니다.`,
       }));
     } finally {
       setIsComparing(false);
