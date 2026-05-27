@@ -36,6 +36,11 @@ button {
   padding: 0 14px;
 }
 
+button:disabled {
+  cursor: progress;
+  opacity: 0.62;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
