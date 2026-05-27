@@ -286,6 +286,14 @@ function hasLegacyGenericNames(rows: Array<{ name: string }>) {
   return rows.some((row) => legacyGenericCompetitorNames.has(row.name.trim()));
 }
 
+function isCompanyNameMatch(targetName: string, corpName: string) {
+  const target = normalizeCompanyName(targetName);
+  const corp = normalizeCompanyName(corpName);
+  if (!target || !corp) return false;
+  if (target === corp) return true;
+  return target.length >= 4 && (corp.startsWith(target) || target.startsWith(corp));
+}
+
 function sanitizeResearchStatus(status?: string) {
   if (!status) return "";
   if (status.includes("API 키") || status.includes(".env") || status.includes("CORS") || status.includes("Failed to fetch")) {
@@ -563,19 +571,11 @@ function App() {
       const corpCodes = await fetchOpenDartCompanies(openDartKey);
       const targetNames = suggestedCompetitors.map((competitor) => competitor.name.replace(/\s/g, ""));
       const matched = corpCodes
-        .filter((company) => targetNames.some((name) => {
-          const normalizedTarget = normalizeCompanyName(name);
-          const normalizedCorp = normalizeCompanyName(company.corpName);
-          return normalizedCorp.includes(normalizedTarget) || normalizedTarget.includes(normalizedCorp);
-        }))
+        .filter((company) => targetNames.some((name) => isCompanyNameMatch(name, company.corpName)))
         .slice(0, 5);
       const liveCompanies = await Promise.all(matched.map((company) => fetchOpenDartCompanyOverview(openDartKey, company)));
       const nextCompetitors = suggestedCompetitors.map((competitor) => {
-        const normalizedName = normalizeCompanyName(competitor.name);
-        const liveCompany = liveCompanies.find((company) => {
-          const corpName = normalizeCompanyName(company.corpName);
-          return corpName.includes(normalizedName) || normalizedName.includes(corpName);
-        });
+        const liveCompany = liveCompanies.find((company) => isCompanyNameMatch(competitor.name, company.corpName));
         if (!liveCompany) return competitor;
         return {
           ...competitor,
