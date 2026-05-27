@@ -2,9 +2,30 @@ import { mkdir, writeFile } from "node:fs/promises";
 
 const apiKey = process.env.VITE_OPENDART_API_KEY || process.env.OPENDART_API_KEY || "";
 const outputPath = new URL("../public/data/opendart-companies.json", import.meta.url);
+const seedCompanies = [
+  { corpName: "드림텍", stockCode: "192650", industryCode: "전자부품·PBA 모듈" },
+  { corpName: "파트론", stockCode: "091700", industryCode: "카메라모듈·전자부품" },
+  { corpName: "비에이치", stockCode: "090460", industryCode: "FPCB·전자부품" },
+  { corpName: "인터플렉스", stockCode: "051370", industryCode: "연성인쇄회로기판" },
+  { corpName: "대덕전자", stockCode: "353200", industryCode: "PCB·반도체 패키지기판" },
+];
 
 function formatDate(date) {
   return date.toISOString().slice(0, 10).replaceAll("-", "");
+}
+
+function mergeSeedCompanies(companies) {
+  const existingNames = new Set(Array.from(companies.values()).map((company) => company.corpName));
+  for (const company of seedCompanies) {
+    if (existingNames.has(company.corpName)) continue;
+    companies.set(`seed-${company.stockCode}`, {
+      corpCode: `seed-${company.stockCode}`,
+      corpName: company.corpName,
+      stockCode: company.stockCode,
+      modifyDate: "seed",
+      industryCode: company.industryCode,
+    });
+  }
 }
 
 async function main() {
@@ -51,9 +72,11 @@ async function main() {
     }
   }
 
+  mergeSeedCompanies(companies);
+
   await writeFile(outputPath, JSON.stringify({
     generatedAt: new Date().toISOString(),
-    source: "OpenDART disclosure list",
+    source: "OpenDART disclosure list with benchmark company seeds",
     companies: Array.from(companies.values()),
   }, null, 2));
   console.log(`Wrote ${companies.size} OpenDART companies.`);

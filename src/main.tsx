@@ -432,7 +432,7 @@ async function fetchOpenDartCompanies(apiKey: string) {
       throw new Error(`DART 배포 캐시 조회 실패 (${response.status})`);
     }
     const data = await response.json();
-    return ((data.companies || []) as LiveCompany[]).filter((company) => company.corpCode && company.corpName);
+    return ((data.companies || []) as LiveCompany[]).filter((company) => company.corpName);
   }
 
   const endDate = new Date();
