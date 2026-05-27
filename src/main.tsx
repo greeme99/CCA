@@ -35,6 +35,7 @@ type AppState = {
 const appName = "CCA(기업경쟁력분석)";
 const envOpenDartKey = import.meta.env.VITE_OPENDART_API_KEY || "";
 const envKosisKey = import.meta.env.VITE_KOSIS_API_KEY || "";
+const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
 
 const axes = [
   { key: "strategy", label: "전략", hint: "성장 방향, 포지셔닝, 의사결정 속도", icon: Target },
@@ -293,7 +294,12 @@ async function fetchOpenDartCompanies(apiKey: string) {
   const companies = new Map<string, LiveCompany>();
 
   for (let page = 1; page <= 5; page += 1) {
-    const url = new URL("/api/opendart/list", window.location.origin);
+    const url = isLocalHost
+      ? new URL("/api/opendart/list", window.location.origin)
+      : new URL("https://opendart.fss.or.kr/api/list.json");
+    if (!isLocalHost) {
+      url.searchParams.set("crtfc_key", apiKey);
+    }
     url.searchParams.set("bgn_de", formatDate(startDate));
     url.searchParams.set("end_de", formatDate(endDate));
     url.searchParams.set("corp_cls", "Y");
@@ -324,7 +330,10 @@ async function fetchOpenDartCompanies(apiKey: string) {
 
 async function fetchOpenDartCompanyOverview(apiKey: string, company: LiveCompany): Promise<LiveCompany> {
   try {
-    const response = await fetch(`/api/opendart/company?corp_code=${encodeURIComponent(company.corpCode)}`);
+    const url = isLocalHost
+      ? `/api/opendart/company?corp_code=${encodeURIComponent(company.corpCode)}`
+      : `https://opendart.fss.or.kr/api/company.json?crtfc_key=${encodeURIComponent(apiKey)}&corp_code=${encodeURIComponent(company.corpCode)}`;
+    const response = await fetch(url);
     if (!response.ok) return company;
     const data = await response.json();
     if (data.status && data.status !== "000") return company;
