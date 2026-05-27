@@ -1,7 +1,205 @@
 {
-  "generatedAt": "2026-05-27T07:54:14.581Z",
+  "generatedAt": "2026-05-27T10:10:22.924Z",
   "source": "OpenDART disclosure list with benchmark company seeds",
   "companies": [
+    {
+      "corpCode": "00136721",
+      "corpName": "신영증권",
+      "stockCode": "001720",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00428729",
+      "corpName": "대호에이엘",
+      "stockCode": "069460",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "01386916",
+      "corpName": "SK아이이테크놀로지",
+      "stockCode": "361610",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00219574",
+      "corpName": "코스맥스비티아이",
+      "stockCode": "044820",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00398701",
+      "corpName": "엘앤에프",
+      "stockCode": "066970",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00103176",
+      "corpName": "흥국화재",
+      "stockCode": "000540",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00145552",
+      "corpName": "이수화학",
+      "stockCode": "005950",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00131939",
+      "corpName": "선도전기",
+      "stockCode": "007610",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00108038",
+      "corpName": "엔피씨",
+      "stockCode": "004250",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00141413",
+      "corpName": "영화금속",
+      "stockCode": "012280",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00401731",
+      "corpName": "LG전자",
+      "stockCode": "066570",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "01784394",
+      "corpName": "STX그린로지스",
+      "stockCode": "465770",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00108135",
+      "corpName": "녹십자홀딩스",
+      "stockCode": "005250",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00153393",
+      "corpName": "태광산업",
+      "stockCode": "003240",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "01032413",
+      "corpName": "해성디에스",
+      "stockCode": "195870",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00159102",
+      "corpName": "DB손해보험",
+      "stockCode": "005830",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00140955",
+      "corpName": "한솔케미칼",
+      "stockCode": "014680",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "01026157",
+      "corpName": "쏘카",
+      "stockCode": "403550",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00128555",
+      "corpName": "삼천리",
+      "stockCode": "004690",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00296290",
+      "corpName": "키움증권",
+      "stockCode": "039490",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00164788",
+      "corpName": "현대모비스",
+      "stockCode": "012330",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00152880",
+      "corpName": "코오롱글로벌",
+      "stockCode": "003070",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00220613",
+      "corpName": "넥스틸",
+      "stockCode": "092790",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00164636",
+      "corpName": "HDC",
+      "stockCode": "012630",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00104856",
+      "corpName": "삼성증권",
+      "stockCode": "016360",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00413523",
+      "corpName": "한미글로벌",
+      "stockCode": "053690",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00760971",
+      "corpName": "크래프톤",
+      "stockCode": "259960",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00261285",
+      "corpName": "한국가스공사",
+      "stockCode": "036460",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00163761",
+      "corpName": "한창제지",
+      "stockCode": "009460",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00146269",
+      "corpName": "일신방직",
+      "stockCode": "003200",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00372873",
+      "corpName": "KTis",
+      "stockCode": "058860",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "00360142",
+      "corpName": "아이마켓코리아",
+      "stockCode": "122900",
+      "modifyDate": "20260527"
+    },
+    {
+      "corpCode": "01714997",
+      "corpName": "신한글로벌액티브리츠",
+      "stockCode": "481850",
+      "modifyDate": "20260527"
+    },
     {
       "corpCode": "00159616",
       "corpName": "두산에너빌리티",
@@ -12,12 +210,6 @@
       "corpCode": "00141307",
       "corpName": "영풍",
       "stockCode": "000670",
-      "modifyDate": "20260527"
-    },
-    {
-      "corpCode": "00372873",
-      "corpName": "KTis",
-      "stockCode": "058860",
       "modifyDate": "20260527"
     },
     {
@@ -111,18 +303,6 @@
       "modifyDate": "20260527"
     },
     {
-      "corpCode": "00104856",
-      "corpName": "삼성증권",
-      "stockCode": "016360",
-      "modifyDate": "20260527"
-    },
-    {
-      "corpCode": "00398701",
-      "corpName": "엘앤에프",
-      "stockCode": "066970",
-      "modifyDate": "20260527"
-    },
-    {
       "corpCode": "00110893",
       "corpName": "대신증권",
       "stockCode": "003540",
@@ -132,12 +312,6 @@
       "corpCode": "00299002",
       "corpName": "HL홀딩스",
       "stockCode": "060980",
-      "modifyDate": "20260527"
-    },
-    {
-      "corpCode": "00145552",
-      "corpName": "이수화학",
-      "stockCode": "005950",
       "modifyDate": "20260527"
     },
     {
@@ -165,12 +339,6 @@
       "modifyDate": "20260527"
     },
     {
-      "corpCode": "00136721",
-      "corpName": "신영증권",
-      "stockCode": "001720",
-      "modifyDate": "20260527"
-    },
-    {
       "corpCode": "00195229",
       "corpName": "미스토홀딩스",
       "stockCode": "081660",
@@ -186,12 +354,6 @@
       "corpCode": "00878696",
       "corpName": "에스케이바이오팜",
       "stockCode": "326030",
-      "modifyDate": "20260527"
-    },
-    {
-      "corpCode": "00296290",
-      "corpName": "키움증권",
-      "stockCode": "039490",
       "modifyDate": "20260527"
     },
     {
@@ -240,12 +402,6 @@
       "corpCode": "00256955",
       "corpName": "테이팩스",
       "stockCode": "055490",
-      "modifyDate": "20260527"
-    },
-    {
-      "corpCode": "00108135",
-      "corpName": "녹십자홀딩스",
-      "stockCode": "005250",
       "modifyDate": "20260527"
     },
     {
@@ -354,12 +510,6 @@
       "corpCode": "00104722",
       "corpName": "국제약품",
       "stockCode": "002720",
-      "modifyDate": "20260527"
-    },
-    {
-      "corpCode": "00140955",
-      "corpName": "한솔케미칼",
-      "stockCode": "014680",
       "modifyDate": "20260527"
     },
     {
@@ -504,12 +654,6 @@
       "corpCode": "00139889",
       "corpName": "SKC",
       "stockCode": "011790",
-      "modifyDate": "20260526"
-    },
-    {
-      "corpCode": "00164636",
-      "corpName": "HDC",
-      "stockCode": "012630",
       "modifyDate": "20260526"
     },
     {
@@ -678,12 +822,6 @@
       "corpCode": "00260408",
       "corpName": "팜스코",
       "stockCode": "036580",
-      "modifyDate": "20260526"
-    },
-    {
-      "corpCode": "00261285",
-      "corpName": "한국가스공사",
-      "stockCode": "036460",
       "modifyDate": "20260526"
     },
     {
@@ -1023,12 +1161,6 @@
       "modifyDate": "20260522"
     },
     {
-      "corpCode": "00164788",
-      "corpName": "현대모비스",
-      "stockCode": "012330",
-      "modifyDate": "20260522"
-    },
-    {
       "corpCode": "00631518",
       "corpName": "SK이노베이션",
       "stockCode": "096770",
@@ -1107,12 +1239,6 @@
       "modifyDate": "20260522"
     },
     {
-      "corpCode": "00159102",
-      "corpName": "DB손해보험",
-      "stockCode": "005830",
-      "modifyDate": "20260522"
-    },
-    {
       "corpCode": "00105271",
       "corpName": "케이씨씨",
       "stockCode": "002380",
@@ -1170,12 +1296,6 @@
       "corpCode": "00152862",
       "corpName": "코오롱",
       "stockCode": "002020",
-      "modifyDate": "20260522"
-    },
-    {
-      "corpCode": "00152880",
-      "corpName": "코오롱글로벌",
-      "stockCode": "003070",
       "modifyDate": "20260522"
     },
     {
@@ -1275,12 +1395,6 @@
       "modifyDate": "20260521"
     },
     {
-      "corpCode": "01714997",
-      "corpName": "신한글로벌액티브리츠",
-      "stockCode": "481850",
-      "modifyDate": "20260521"
-    },
-    {
       "corpCode": "00161426",
       "corpName": "한미사이언스",
       "stockCode": "008930",
@@ -1368,12 +1482,6 @@
       "corpCode": "01535150",
       "corpName": "SK리츠",
       "stockCode": "395400",
-      "modifyDate": "20260521"
-    },
-    {
-      "corpCode": "00128555",
-      "corpName": "삼천리",
-      "stockCode": "004690",
       "modifyDate": "20260521"
     },
     {
@@ -1470,12 +1578,6 @@
       "corpCode": "00360595",
       "corpName": "현대글로비스",
       "stockCode": "086280",
-      "modifyDate": "20260521"
-    },
-    {
-      "corpCode": "00401731",
-      "corpName": "LG전자",
-      "stockCode": "066570",
       "modifyDate": "20260521"
     },
     {
@@ -1737,12 +1839,6 @@
       "modifyDate": "20260520"
     },
     {
-      "corpCode": "00219574",
-      "corpName": "코스맥스비티아이",
-      "stockCode": "044820",
-      "modifyDate": "20260520"
-    },
-    {
       "corpCode": "00432102",
       "corpName": "한국금융지주",
       "stockCode": "071050",
@@ -1752,12 +1848,6 @@
       "corpCode": "00160205",
       "corpName": "한국내화",
       "stockCode": "010040",
-      "modifyDate": "20260520"
-    },
-    {
-      "corpCode": "00153393",
-      "corpName": "태광산업",
-      "stockCode": "003240",
       "modifyDate": "20260520"
     },
     {
@@ -1806,12 +1896,6 @@
       "corpCode": "00753643",
       "corpName": "주성코퍼레이션",
       "stockCode": "109070",
-      "modifyDate": "20260520"
-    },
-    {
-      "corpCode": "00428729",
-      "corpName": "대호에이엘",
-      "stockCode": "069460",
       "modifyDate": "20260520"
     },
     {
@@ -1899,12 +1983,6 @@
       "modifyDate": "20260519"
     },
     {
-      "corpCode": "01026157",
-      "corpName": "쏘카",
-      "stockCode": "403550",
-      "modifyDate": "20260519"
-    },
-    {
       "corpCode": "00117230",
       "corpName": "TYM",
       "stockCode": "002900",
@@ -1914,108 +1992,6 @@
       "corpCode": "01415892",
       "corpName": "제이알글로벌리츠",
       "stockCode": "348950",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "00156859",
-      "corpName": "다올투자증권",
-      "stockCode": "030210",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "01244601",
-      "corpName": "카카오페이",
-      "stockCode": "377300",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "00260383",
-      "corpName": "대한유화",
-      "stockCode": "006650",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "00111421",
-      "corpName": "휴니드테크놀러지스",
-      "stockCode": "005870",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "00406046",
-      "corpName": "HD현대마린엔진",
-      "stockCode": "071970",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "00361008",
-      "corpName": "한화엔진",
-      "stockCode": "082740",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "00161383",
-      "corpName": "한미반도체",
-      "stockCode": "042700",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "01649204",
-      "corpName": "달바글로벌",
-      "stockCode": "483650",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "01702017",
-      "corpName": "유니드비티플러스",
-      "stockCode": "446070",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "00136402",
-      "corpName": "신송홀딩스",
-      "stockCode": "006880",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "01238169",
-      "corpName": "오리온",
-      "stockCode": "271560",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "00356370",
-      "corpName": "LG생활건강",
-      "stockCode": "051900",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "00117577",
-      "corpName": "오리온홀딩스",
-      "stockCode": "001800",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "00249247",
-      "corpName": "YG PLUS",
-      "stockCode": "037270",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "00159218",
-      "corpName": "한전KPS",
-      "stockCode": "051600",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "00117629",
-      "corpName": "KBI동양철관",
-      "stockCode": "008970",
-      "modifyDate": "20260519"
-    },
-    {
-      "corpCode": "00130879",
-      "corpName": "서울식품공업",
-      "stockCode": "004410",
       "modifyDate": "20260519"
     },
     {
@@ -2052,6 +2028,41 @@
       "stockCode": "353200",
       "modifyDate": "seed",
       "industryCode": "PCB·반도체 패키지기판"
+    },
+    {
+      "corpCode": "seed-다쓰테크",
+      "corpName": "다쓰테크",
+      "stockCode": "",
+      "modifyDate": "seed",
+      "industryCode": "태양광 인버터 전문"
+    },
+    {
+      "corpCode": "seed-313760",
+      "corpName": "윌링스",
+      "stockCode": "313760",
+      "modifyDate": "seed",
+      "industryCode": "태양광 인버터·ESS PCS"
+    },
+    {
+      "corpCode": "seed-카코뉴에너지",
+      "corpName": "카코뉴에너지",
+      "stockCode": "",
+      "modifyDate": "seed",
+      "industryCode": "태양광 인버터 제조"
+    },
+    {
+      "corpCode": "seed-헥스파워시스템",
+      "corpName": "헥스파워시스템",
+      "stockCode": "",
+      "modifyDate": "seed",
+      "industryCode": "계통연계 PV 인버터"
+    },
+    {
+      "corpCode": "seed-010120",
+      "corpName": "LS ELECTRIC",
+      "stockCode": "010120",
+      "modifyDate": "seed",
+      "industryCode": "전력기기·태양광/ESS PCS"
     }
   ]
 }

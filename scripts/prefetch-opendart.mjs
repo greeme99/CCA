@@ -8,6 +8,11 @@ const seedCompanies = [
   { corpName: "비에이치", stockCode: "090460", industryCode: "FPCB·전자부품" },
   { corpName: "인터플렉스", stockCode: "051370", industryCode: "연성인쇄회로기판" },
   { corpName: "대덕전자", stockCode: "353200", industryCode: "PCB·반도체 패키지기판" },
+  { corpName: "다쓰테크", stockCode: "", industryCode: "태양광 인버터 전문" },
+  { corpName: "윌링스", stockCode: "313760", industryCode: "태양광 인버터·ESS PCS" },
+  { corpName: "카코뉴에너지", stockCode: "", industryCode: "태양광 인버터 제조" },
+  { corpName: "헥스파워시스템", stockCode: "", industryCode: "계통연계 PV 인버터" },
+  { corpName: "LS ELECTRIC", stockCode: "010120", industryCode: "전력기기·태양광/ESS PCS" },
 ];
 
 function formatDate(date) {
@@ -18,8 +23,9 @@ function mergeSeedCompanies(companies) {
   const existingNames = new Set(Array.from(companies.values()).map((company) => company.corpName));
   for (const company of seedCompanies) {
     if (existingNames.has(company.corpName)) continue;
-    companies.set(`seed-${company.stockCode}`, {
-      corpCode: `seed-${company.stockCode}`,
+    const seedCode = `seed-${company.stockCode || company.corpName}`;
+    companies.set(seedCode, {
+      corpCode: seedCode,
       corpName: company.corpName,
       stockCode: company.stockCode,
       modifyDate: "seed",

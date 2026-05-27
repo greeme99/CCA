@@ -144,6 +144,18 @@ const researchProfiles: ResearchProfile[] = [
     peerScores: { strategy: 8, profit: 8, scm: 7, market: 8, operation: 8, finance: 8 },
   },
   {
+    label: "태양광 인버터·전력변환",
+    keywords: ["동양이엔피", "태양광", "태양광 인버터", "pv inverter", "solar inverter", "인버터", "pcs", "ess용 pcs", "전력변환", "신재생", "스마트그리드"],
+    competitors: [
+      { name: "다쓰테크", position: "태양광 인버터 전문", note: "태양광 인버터 전문기업으로 스트링·센트럴 인버터와 대용량 발전소 시장 대응 역량을 보유해 동양이엔피의 태양광 인버터 사업과 직접 비교 가능" },
+      { name: "윌링스", position: "태양광 인버터·ESS PCS", note: "태양광 발전용 인버터와 ESS용 PCS 공급 실적이 있어 전력변환 기술, 프로젝트 수주, 발전소 고객 대응력 비교 가능" },
+      { name: "카코뉴에너지", position: "태양광 인버터 제조", note: "태양광 발전용 인버터 개발·제조·판매를 주력으로 해 국내 발전소·상업용 인버터 시장의 직접 비교 대상" },
+      { name: "헥스파워시스템", position: "계통연계 PV 인버터", note: "단상 소용량부터 삼상 대용량 인버터까지 생산하는 태양광 인버터 전문 제조사로 제품 라인업과 A/S 역량 비교 가능" },
+      { name: "LS ELECTRIC", position: "전력기기·태양광/ESS PCS", note: "전력기기, 스마트그리드, 태양광·ESS 전력변환 솔루션을 보유해 대형 프로젝트와 계통 연계 관점의 벤치마크 가능" },
+    ],
+    peerScores: { strategy: 8, profit: 7, scm: 7, market: 8, operation: 8, finance: 7 },
+  },
+  {
     label: "PBA·PCB 어셈블리",
     keywords: ["에스제이아이", "pba", "pcb", "pcb assembly", "인쇄회로기판", "어셈블리", "전자부품 조립", "ems"],
     competitors: [
@@ -206,6 +218,7 @@ const defaultResearchProfile: ResearchProfile = {
   peerScores: { strategy: 7, profit: 7, scm: 7, market: 7, operation: 7, finance: 7 },
 };
 const legacyGenericCompetitorNames = new Set(["상장 동종업계 1위", "고성장 비상장사", "원가 경쟁사", "기술 차별화 기업", "대체재 기업"]);
+const defaultGenericCompetitorNames = new Set(defaultResearchProfile.competitors.map((competitor) => competitor.name));
 
 const researchSites = [
   { name: "DART", description: "공시·사업보고서", url: "https://dart.fss.or.kr/" },
@@ -292,6 +305,7 @@ function shouldRefreshGeneratedCompetitors(rows: Array<{ name: string; position?
   const profileNames = new Set(profile.competitors.map((competitor) => normalizeCompanyName(competitor.name)));
   const allNamesAlreadyCurrent = rows.every((row) => profileNames.has(normalizeCompanyName(row.name)));
   if (allNamesAlreadyCurrent) return false;
+  if (rows.some((row) => defaultGenericCompetitorNames.has(row.name.trim()))) return true;
 
   const profilePositions = new Set(profile.competitors.map((competitor) => competitor.position));
   const positionMatches = rows.filter((row) => profilePositions.has(row.position || row.industryField || "")).length;
