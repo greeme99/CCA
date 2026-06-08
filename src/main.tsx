@@ -215,6 +215,18 @@ const researchProfiles: ResearchProfile[] = [
     ],
     peerScores: { strategy: 7, profit: 7, scm: 7, market: 7, operation: 8, finance: 6 },
   },
+  {
+    label: "전자담배·베이퍼라이저 부품",
+    keywords: ["전자담배", "베이프", "베이핑", "vape", "vaping", "무화기", "카트리지", "액상형", "히팅", "궐련형", "atomizer", "e-cigarette", "이엠텍"],
+    competitors: [
+      { name: "이엠텍", position: "전자담배 ODM·기기 개발", note: "KT&G 릴 기기 개발·생산 경험과 전자담배 ODM 기술/IP 이력을 보유한 가장 강한 직접 비교 대상입니다" },
+      { name: "아이티엠반도체", position: "전자담배 기기·카트리지 부품", note: "KT&G向 전자담배 기기·카트리지 생산 비중이 커지고 있는 핵심 직접 경쟁사입니다" },
+      { name: "파트론", position: "전자담배 OEM·전자부품", note: "전자담배 OEM 매출 확대가 확인되는 코스닥 전자부품사로 생산 효율·고객 다변화 비교에 적합합니다" },
+      { name: "KH바텍", position: "메탈·기구부품(전자담배 인접)", note: "전자담배 관련 특허·신제품 개발 이력과 금속/기구물 제조역량을 보유한 인접 경쟁사입니다" },
+      { name: "SMOORE International", position: "글로벌 전자담배·무화 기술", note: "세계적인 전자담배·무화 기술 제조사로 글로벌 제조역량과 기술 격차를 점검하는 벤치마크 대상입니다" },
+    ],
+    peerScores: { strategy: 8, profit: 7, scm: 8, market: 7, operation: 8, finance: 7 },
+  },
 ];
 
 const defaultResearchProfile: ResearchProfile = {
@@ -252,12 +264,22 @@ const normalizeCompanyName = (value: string) =>
     .replace(/주식회사|유한회사|합자회사|합명회사|재단법인|사단법인/g, "")
     .replace(/[()\[\]\s㈜.]/g, "");
 
-function getResearchProfile(companyName: string, industry: string) {
-  const target = `${companyName} ${industry}`.toLowerCase();
+function matchProfileByText(text: string) {
+  if (!text) return undefined;
   return researchProfiles.find((profile) => {
     const competitorNames = profile.competitors.map((competitor) => competitor.name.toLowerCase());
-    return profile.keywords.some((keyword) => target.includes(keyword.toLowerCase())) || competitorNames.some((name) => target.includes(name));
-  }) || defaultResearchProfile;
+    return profile.keywords.some((keyword) => text.includes(keyword.toLowerCase())) || competitorNames.some((name) => text.includes(name));
+  });
+}
+
+function getResearchProfile(companyName: string, industry: string) {
+  // 사업 다각화 기업(예: 배터리 제조사가 전자담배 사업도 영위)에서는 회사명 키워드보다
+  // 사용자가 입력한 "산업/사업 분야" 텍스트가 더 구체적인 신호이므로 먼저 우선 매칭한다.
+  // 산업 입력으로 매칭되는 프로파일이 없을 때만 회사명+산업 통합 텍스트로 보조 매칭한다.
+  const industryOnlyMatch = matchProfileByText(industry.trim().toLowerCase());
+  if (industryOnlyMatch) return industryOnlyMatch;
+
+  return matchProfileByText(`${companyName} ${industry}`.toLowerCase()) || defaultResearchProfile;
 }
 
 function getResearchQuery(companyName: string, industry: string) {
