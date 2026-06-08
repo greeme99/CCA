@@ -247,7 +247,7 @@ const defaultGenericCompetitorNames = new Set(defaultResearchProfile.competitors
 const researchSites = [
   { name: "DART", description: "공시·사업보고서", url: "https://dart.fss.or.kr/" },
   { name: "KIND", description: "상장사 공시·시장정보", url: "https://kind.krx.co.kr/" },
-  { name: "SMINFO", description: "중소기업 현황", url: "https://www.sminfo.mss.go.kr/" },
+  { name: "SMINFO", description: "중소기업 현황", url: "https://sminfo.mss.go.kr/cm/sv/CSV001R0.do" },
   { name: "KOSIS", description: "산업 통계", url: "https://kosis.kr/" },
   { name: "NICE BizLINE", description: "기업 신용·거래 정보", url: "https://www.nicebizline.com/" },
 ];
