@@ -388,6 +388,18 @@ textarea:focus {
   gap: 4px;
 }
 
+.match-badge {
+  background: #1f6f4a;
+  border-radius: 999px;
+  color: #fff;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  justify-self: start;
+  letter-spacing: 0.02em;
+  padding: 3px 9px;
+}
+
 .candidate-row small,
 .candidate-row span,
 .candidate-row em {

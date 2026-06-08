@@ -10,7 +10,7 @@ type Competitor = { name: string; position: string; note: string };
 type Supplier = { name: string; dependence: number; leadTime: number; risk: Risk };
 type Action = { task: string; owner: string; kpi: string; due: string };
 type LiveCompany = { corpCode: string; corpName: string; stockCode: string; modifyDate: string; ceo?: string; address?: string; industryCode?: string };
-type CompetitorCandidate = { name: string; industryField: string; reason: string; source: "DART/KOSIS" | "업종 키워드" };
+type CompetitorCandidate = { name: string; industryField: string; reason: string; source: "DART/KOSIS" | "업종 키워드"; industryMatch?: boolean };
 type ResearchProfile = {
   label: string;
   keywords: string[];
@@ -203,6 +203,18 @@ const researchProfiles: ResearchProfile[] = [
     ],
     peerScores: { strategy: 7, profit: 7, scm: 8, market: 8, operation: 7, finance: 7 },
   },
+  {
+    label: "음향부품·스피커",
+    keywords: ["이엠텍", "emtech", "em-tech", "스피커", "마이크로스피커", "음향부품", "음향", "이어폰", "헤드폰", "리시버", "마이크로폰", "mems마이크", "사운드 솔루션"],
+    competitors: [
+      { name: "비에스이", position: "마이크로스피커·MEMS 마이크로폰", note: "마이크로 스피커, MEMS 마이크로폰, 이어폰용 드라이버 등 음향부품 기반의 직접 경쟁사로 제품군·고객사 비교에 적합합니다" },
+      { name: "에스텍", position: "스피커·이어폰 부품 제조", note: "스피커·이어폰·헤드폰 관련 부품을 자동차·TV·가전·휴대폰 시장에 공급하는 직접·인접 경쟁사로 응용처 다변화 비교에 적합합니다" },
+      { name: "와이솔", position: "피에조 음향모듈·화면진동 스피커", note: "피에조 기반 음향 모듈과 화면 진동형 스피커/리시버 기술을 보유한 기술 대체 경쟁사로 차세대 음향 기술 경쟁력 비교에 적합합니다" },
+      { name: "크레신", position: "이어폰·헤드폰·음향기기 제조", note: "이어폰·헤드폰·음향기기를 제조하는 중견 음향기업으로 채널·브랜드 경쟁력 비교에 적합한 인접 경쟁사입니다" },
+      { name: "기린전자", position: "마이크로스피커·다이내믹 리시버 (현재 폐업 확인)", note: "마이크로 스피커·다이내믹 리시버 전문 이력이 있으나 현재 폐업 상태로 확인되어, 직접 비교보다는 시장 재편·구조조정 리스크를 점검하는 참고 사례로 활용을 권장합니다" },
+    ],
+    peerScores: { strategy: 7, profit: 7, scm: 7, market: 7, operation: 8, finance: 6 },
+  },
 ];
 
 const defaultResearchProfile: ResearchProfile = {
@@ -267,7 +279,15 @@ function getCompetitorReason(competitor: Competitor, index: number, companyName:
   return `${index + 1}. ${competitor.name}: ${competitor.position || "경쟁사"}로 분류했습니다. ${basis[index % basis.length]} ${companyName ? `${companyName}과 비교해` : "우리회사와 비교해"} ${industry ? `${industry} 업종 내 경쟁구도` : "동종·인접 시장 경쟁구도"}를 확인하는 데 활용합니다.`;
 }
 
-function buildCandidate(competitor: Competitor, index: number, companyName: string, industry: string, source: CompetitorCandidate["source"] = "DART/KOSIS"): CompetitorCandidate {
+function buildCandidate(
+  competitor: Competitor,
+  index: number,
+  companyName: string,
+  industry: string,
+  source: CompetitorCandidate["source"] = "DART/KOSIS",
+  liveCompany?: LiveCompany,
+  ownCompany?: LiveCompany,
+): CompetitorCandidate {
   const reasonTemplates = [
     "DART 공시 기준 사업영역이 유사하고, KOSIS 산업분류상 동일·인접 업종 비교가 가능합니다.",
     "주요 제품/서비스 포지션이 기준 회사와 겹쳐 매출·수익성·채널 경쟁력 비교에 적합합니다.",
@@ -276,15 +296,31 @@ function buildCandidate(competitor: Competitor, index: number, companyName: stri
     "대체재 또는 인접시장 관점에서 가격·채널·고객 이탈 리스크를 점검할 수 있습니다.",
   ];
   const baseCompany = companyName.trim() || "우리회사";
+  const industryMatch = Boolean(liveCompany?.industryCode && ownCompany?.industryCode && liveCompany.industryCode === ownCompany.industryCode);
+  const evidence = industryMatch
+    ? `DART 등록 기준 업종코드 ${liveCompany?.industryCode}가 ${baseCompany}와 일치해 동일 업종 등록 데이터로 직접 비교가 가능한 후보입니다.`
+    : reasonTemplates[index % reasonTemplates.length];
+  const liveTag = liveCompany
+    ? [liveCompany.stockCode ? `종목코드 ${liveCompany.stockCode}` : "비상장", liveCompany.industryCode ? `업종코드 ${liveCompany.industryCode}` : ""].filter(Boolean).join(" · ")
+    : "";
+
   return {
     name: competitor.name,
     industryField: competitor.position || industry || "동종·인접 산업",
-    reason: `${baseCompany}의 경쟁력 기준점으로 선정했습니다. ${reasonTemplates[index % reasonTemplates.length]} ${competitor.note ? `추가 근거: ${competitor.note}` : ""}`.trim(),
+    reason: `${baseCompany}의 경쟁력 기준점으로 선정했습니다. ${evidence}${liveTag ? ` (DART 확인: ${liveTag})` : ""} ${competitor.note ? `추가 근거: ${competitor.note}` : ""}`.trim(),
     source,
+    industryMatch,
   };
 }
 
-function buildCandidates(competitors: Competitor[], companyName: string, industry: string, source: CompetitorCandidate["source"] = "DART/KOSIS") {
+function buildCandidates(
+  competitors: Competitor[],
+  companyName: string,
+  industry: string,
+  source: CompetitorCandidate["source"] = "DART/KOSIS",
+  liveCompanies: LiveCompany[] = [],
+  ownCompany?: LiveCompany,
+) {
   const normalizedCompanyName = normalizeCompanyName(companyName);
   return competitors
     .filter((competitor) => {
@@ -292,7 +328,11 @@ function buildCandidates(competitors: Competitor[], companyName: string, industr
       return competitor.name.trim() && normalizedCompetitorName !== normalizedCompanyName;
     })
     .slice(0, 5)
-    .map((competitor, index) => buildCandidate(competitor, index, companyName, industry, source));
+    .map((competitor, index) => {
+      const liveCompany = liveCompanies.find((company) => isCompanyNameMatch(competitor.name, company.corpName));
+      return buildCandidate(competitor, index, companyName, industry, source, liveCompany, ownCompany);
+    })
+    .sort((a, b) => Number(b.industryMatch) - Number(a.industryMatch));
 }
 
 function hasLegacyGenericNames(rows: Array<{ name: string }>) {
@@ -737,6 +777,7 @@ function App() {
         .filter((company) => targetNames.some((name) => isCompanyNameMatch(name, company.corpName)))
         .slice(0, 5);
       const liveCompanies = await Promise.all(matched.map((company) => fetchOpenDartCompanyOverview(openDartKey, company)));
+      const ownCompany = await resolveLiveCompany(state.companyName, openDartKey);
       const nextCompetitors = suggestedCompetitors.map((competitor) => {
         const liveCompany = liveCompanies.find((company) => isCompanyNameMatch(competitor.name, company.corpName));
         if (!liveCompany) return competitor;
@@ -746,7 +787,8 @@ function App() {
           note: [competitor.note, liveCompany.ceo ? `대표 ${liveCompany.ceo}` : "", liveCompany.industryCode ? `DART 업종코드 ${liveCompany.industryCode}` : "", liveCompany.stockCode ? `종목코드 ${liveCompany.stockCode}` : ""].filter(Boolean).join(" · "),
         };
       });
-      const candidates = buildCandidates(nextCompetitors, state.companyName, state.industry, liveCompanies.length ? "DART/KOSIS" : "업종 키워드");
+      const candidates = buildCandidates(nextCompetitors, state.companyName, state.industry, liveCompanies.length ? "DART/KOSIS" : "업종 키워드", liveCompanies, ownCompany);
+      const industryMatchCount = candidates.filter((candidate) => candidate.industryMatch).length;
 
       setState((current) => ({
         ...current,
@@ -754,7 +796,7 @@ function App() {
         liveCompetitors: liveCompanies,
         competitorCandidates: candidates,
         researchStatus: liveCompanies.length
-          ? `${state.companyName || "우리회사"} 기준 Top5 경쟁사 중 DART ${isLocalHost ? "공시/회사개황" : "배포 캐시"}에서 ${liveCompanies.length}개 회사를 확인했습니다. KOSIS 산업통계는 시장규모·업종 추세를 보정하는 근거로 함께 사용합니다.`
+          ? `${state.companyName || "우리회사"} 기준 Top5 경쟁사 중 DART ${isLocalHost ? "공시/회사개황" : "배포 캐시"}에서 ${liveCompanies.length}개 회사를 확인했습니다.${industryMatchCount ? ` 이 중 ${industryMatchCount}개사는 ${ownCompany?.industryCode ? `업종코드 ${ownCompany.industryCode}` : "동일 업종코드"}가 일치해 등록 데이터 기준으로 직접 비교가 가능합니다.` : " KOSIS 산업통계는 시장규모·업종 추세를 보정하는 근거로 함께 사용합니다."}`
           : `${state.companyName || "우리회사"} 기준으로 DART 공시목록 직접 매칭이 어려워 업종 키워드와 KOSIS 산업분류 관점으로 Top5 경쟁사를 제안했습니다.`,
       }));
     } catch (error) {
@@ -807,10 +849,10 @@ function App() {
         ...current,
         competitors: nextCompetitors,
         liveCompetitors: liveCompanies,
-        competitorCandidates: buildCandidates(nextCompetitors, current.companyName, current.industry, canUseDartData ? "DART/KOSIS" : "업종 키워드"),
+        competitorCandidates: buildCandidates(nextCompetitors, current.companyName, current.industry, canUseDartData ? "DART/KOSIS" : "업종 키워드", liveCompanies, ownCompany),
         scores: nextScores,
         researchStatus: liveCompanies.length
-          ? `${current.companyName || "우리회사"} 기준 경쟁력 비교를 완료했습니다. DART ${isLocalHost ? "공시목록/회사개황" : "배포 캐시"}에서 경쟁사 ${liveCompanies.length}개${ownCompany ? "와 우리회사" : ""}를 확인했고, KOSIS ${current.industry || researchProfile.label} 업종 관점으로 우리회사와 경쟁사 평균을 함께 보정했습니다.`
+          ? `${current.companyName || "우리회사"} 기준 경쟁력 비교를 완료했습니다. DART ${isLocalHost ? "공시목록/회사개황" : "배포 캐시"}에서 경쟁사 ${liveCompanies.length}개${ownCompany ? "와 우리회사" : ""}를 확인했고, KOSIS ${current.industry || researchProfile.label} 업종 관점으로 우리회사와 경쟁사 평균을 함께 보정했습니다.${ownCompany?.industryCode ? ` 업종코드 ${ownCompany.industryCode} 일치 후보는 추천 목록 상단에 우선 배치했습니다.` : ""}`
           : `${current.companyName || "우리회사"} 기준 경쟁력 비교를 완료했습니다. DART 직접 매칭이 부족해 회사명·산업·분석목적과 KOSIS ${current.industry || researchProfile.label} 업종 관점으로 우리회사와 경쟁사 평균을 산정했습니다.`,
         actions: current.actions.some((action) => action.task)
           ? current.actions
@@ -916,6 +958,7 @@ function App() {
                       <div>
                         <small>{String(index + 1).padStart(2, "0")}</small>
                         <strong>{candidate.name}</strong>
+                        {candidate.industryMatch && <span className="match-badge" title="DART 등록 업종코드가 우리회사와 일치하는 후보입니다">업종코드 일치</span>}
                       </div>
                       <span>{candidate.industryField}</span>
                       <p>{candidate.reason}</p>
