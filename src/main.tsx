@@ -266,10 +266,26 @@ const normalizeCompanyName = (value: string) =>
 
 function matchProfileByText(text: string) {
   if (!text) return undefined;
-  return researchProfiles.find((profile) => {
+
+  // 키워드가 서로의 부분 문자열인 경우(예: "전자" vs "전자담배")
+  // 배열 내 등장 순서가 아니라 "가장 길게 일치하는 키워드"를 가진 프로파일을 우선한다.
+  // 이렇게 하면 더 구체적인(긴) 키워드를 가진 프로파일이 일반적인(짧은) 키워드를 가진
+  // 프로파일보다 항상 우선 매칭되어, "전자담배"가 "반도체·전자부품"으로 오매칭되는 문제를 방지한다.
+  let bestProfile: ResearchProfile | undefined;
+  let bestMatchLength = 0;
+
+  for (const profile of researchProfiles) {
     const competitorNames = profile.competitors.map((competitor) => competitor.name.toLowerCase());
-    return profile.keywords.some((keyword) => text.includes(keyword.toLowerCase())) || competitorNames.some((name) => text.includes(name));
-  });
+    const candidates = [...profile.keywords.map((keyword) => keyword.toLowerCase()), ...competitorNames];
+    for (const candidate of candidates) {
+      if (candidate && text.includes(candidate) && candidate.length > bestMatchLength) {
+        bestMatchLength = candidate.length;
+        bestProfile = profile;
+      }
+    }
+  }
+
+  return bestProfile;
 }
 
 function getResearchProfile(companyName: string, industry: string) {
