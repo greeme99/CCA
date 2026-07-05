@@ -6,16 +6,19 @@ import "./styles.css";
 type AxisKey = "strategy" | "profit" | "scm" | "market" | "operation" | "finance";
 type Risk = "낮음" | "보통" | "높음";
 type Score = { own: number; peer: number; note: string };
-type Competitor = { name: string; position: string; note: string };
+type Competitor = { name: string; position: string; note: string; tags?: string[]; directness?: "direct" | "adjacent" | "benchmark" };
 type Supplier = { name: string; dependence: number; leadTime: number; risk: Risk };
 type Action = { task: string; owner: string; kpi: string; due: string };
 type LiveCompany = { corpCode: string; corpName: string; stockCode: string; modifyDate: string; ceo?: string; address?: string; industryCode?: string };
-type CompetitorCandidate = { name: string; industryField: string; reason: string; source: "DART/KOSIS" | "업종 키워드"; industryMatch?: boolean };
+type CompetitorCandidate = { name: string; industryField: string; reason: string; source: "DART/KOSIS" | "업종 키워드"; industryMatch?: boolean; fitScore?: number };
 type ResearchProfile = {
   label: string;
   keywords: string[];
   competitors: Competitor[];
   peerScores: Record<AxisKey, number>;
+  requiredKeywordGroups?: string[][];
+  negativeKeywords?: string[];
+  tags?: string[];
 };
 type AppState = {
   companyName: string;
@@ -146,24 +149,30 @@ const researchProfiles: ResearchProfile[] = [
   {
     label: "태양광 인버터·전력변환",
     keywords: ["동양이엔피", "태양광", "태양광 인버터", "pv inverter", "solar inverter", "인버터", "pcs", "ess용 pcs", "전력변환", "신재생", "스마트그리드"],
+    requiredKeywordGroups: [["태양광", "pv", "solar", "신재생"], ["인버터", "pcs", "전력변환"]],
+    negativeKeywords: ["스마트폰", "반도체", "디스플레이", "생활가전", "자동차부품"],
+    tags: ["태양광", "인버터", "PV", "PCS", "전력변환", "ESS"],
     competitors: [
-      { name: "다쓰테크", position: "태양광 인버터 전문", note: "태양광 인버터 전문기업으로 스트링·센트럴 인버터와 대용량 발전소 시장 대응 역량을 보유해 동양이엔피의 태양광 인버터 사업과 직접 비교 가능" },
-      { name: "윌링스", position: "태양광 인버터·ESS PCS", note: "태양광 발전용 인버터와 ESS용 PCS 공급 실적이 있어 전력변환 기술, 프로젝트 수주, 발전소 고객 대응력 비교 가능" },
-      { name: "카코뉴에너지", position: "태양광 인버터 제조", note: "태양광 발전용 인버터 개발·제조·판매를 주력으로 해 국내 발전소·상업용 인버터 시장의 직접 비교 대상" },
-      { name: "헥스파워시스템", position: "계통연계 PV 인버터", note: "단상 소용량부터 삼상 대용량 인버터까지 생산하는 태양광 인버터 전문 제조사로 제품 라인업과 A/S 역량 비교 가능" },
-      { name: "LS ELECTRIC", position: "전력기기·태양광/ESS PCS", note: "전력기기, 스마트그리드, 태양광·ESS 전력변환 솔루션을 보유해 대형 프로젝트와 계통 연계 관점의 벤치마크 가능" },
+      { name: "다쓰테크", position: "태양광 인버터 전문", tags: ["태양광", "인버터", "PV", "전력변환", "직접경쟁"], directness: "direct", note: "태양광 인버터 전문기업으로 스트링·센트럴 인버터와 대용량 발전소 시장 대응 역량을 보유해 동양이엔피의 태양광 인버터 사업과 직접 비교 가능" },
+      { name: "윌링스", position: "태양광 인버터·ESS PCS", tags: ["태양광", "인버터", "ESS", "PCS", "전력변환", "직접경쟁"], directness: "direct", note: "태양광 발전용 인버터와 ESS용 PCS 공급 실적이 있어 전력변환 기술, 프로젝트 수주, 발전소 고객 대응력 비교 가능" },
+      { name: "카코뉴에너지", position: "태양광 인버터 제조", tags: ["태양광", "인버터", "PV", "직접경쟁"], directness: "direct", note: "태양광 발전용 인버터 개발·제조·판매를 주력으로 해 국내 발전소·상업용 인버터 시장의 직접 비교 대상" },
+      { name: "헥스파워시스템", position: "계통연계 PV 인버터", tags: ["태양광", "PV", "인버터", "계통연계", "직접경쟁"], directness: "direct", note: "단상 소용량부터 삼상 대용량 인버터까지 생산하는 태양광 인버터 전문 제조사로 제품 라인업과 A/S 역량 비교 가능" },
+      { name: "LS ELECTRIC", position: "전력기기·태양광/ESS PCS", tags: ["태양광", "ESS", "PCS", "전력변환", "전력기기", "인접경쟁"], directness: "adjacent", note: "전력기기, 스마트그리드, 태양광·ESS 전력변환 솔루션을 보유해 대형 프로젝트와 계통 연계 관점의 벤치마크 가능" },
     ],
     peerScores: { strategy: 8, profit: 7, scm: 7, market: 8, operation: 8, finance: 7 },
   },
   {
     label: "PBA·PCB 어셈블리",
     keywords: ["에스제이아이", "pba", "pcb", "pcb assembly", "인쇄회로기판", "어셈블리", "전자부품 조립", "ems"],
+    requiredKeywordGroups: [["pba", "pcb", "인쇄회로기판", "assembly", "어셈블리", "ems"], ["전자부품", "모듈", "조립", "실장"]],
+    negativeKeywords: ["완성차", "식품", "화장품", "제약", "전자담배"],
+    tags: ["PBA", "PCB", "EMS", "전자부품", "어셈블리", "모듈"],
     competitors: [
-      { name: "드림텍", position: "전자부품·PBA 모듈", note: "스마트폰·의료기기·자동차 전장용 모듈 제조 역량을 보유해 PBA/EMS 제조 경쟁력 비교 가능" },
-      { name: "파트론", position: "카메라모듈·전자부품", note: "전자부품 모듈 양산, 고객사 대응, 생산 효율 관점에서 벤치마크 가능" },
-      { name: "비에이치", position: "FPCB·전자부품", note: "모바일·전장용 인쇄회로기판 제품군과 글로벌 고객 기반을 보유해 PCB 가치사슬 비교 가능" },
-      { name: "인터플렉스", position: "연성인쇄회로기판", note: "FPCB 제조와 고객사 납품 경험이 있어 품질·납기·수율 관리 비교 대상" },
-      { name: "대덕전자", position: "PCB·반도체 패키지기판", note: "PCB와 패키지기판 양산 역량, 설비투자, 고객 포트폴리오 측면에서 비교 가능" },
+      { name: "드림텍", position: "전자부품·PBA 모듈", tags: ["PBA", "전자부품", "모듈", "EMS", "직접경쟁"], directness: "direct", note: "스마트폰·의료기기·자동차 전장용 모듈 제조 역량을 보유해 PBA/EMS 제조 경쟁력 비교 가능" },
+      { name: "파트론", position: "카메라모듈·전자부품", tags: ["전자부품", "모듈", "EMS", "인접경쟁"], directness: "adjacent", note: "전자부품 모듈 양산, 고객사 대응, 생산 효율 관점에서 벤치마크 가능" },
+      { name: "비에이치", position: "FPCB·전자부품", tags: ["FPCB", "PCB", "전자부품", "직접경쟁"], directness: "direct", note: "모바일·전장용 인쇄회로기판 제품군과 글로벌 고객 기반을 보유해 PCB 가치사슬 비교 가능" },
+      { name: "인터플렉스", position: "연성인쇄회로기판", tags: ["FPCB", "PCB", "인쇄회로기판", "직접경쟁"], directness: "direct", note: "FPCB 제조와 고객사 납품 경험이 있어 품질·납기·수율 관리 비교 대상" },
+      { name: "대덕전자", position: "PCB·반도체 패키지기판", tags: ["PCB", "패키지기판", "전자부품", "인접경쟁"], directness: "adjacent", note: "PCB와 패키지기판 양산 역량, 설비투자, 고객 포트폴리오 측면에서 비교 가능" },
     ],
     peerScores: { strategy: 7, profit: 7, scm: 8, market: 7, operation: 8, finance: 7 },
   },
@@ -218,12 +227,15 @@ const researchProfiles: ResearchProfile[] = [
   {
     label: "전자담배·베이퍼라이저 부품",
     keywords: ["전자담배", "베이프", "베이핑", "vape", "vaping", "무화기", "카트리지", "액상형", "히팅", "궐련형", "atomizer", "e-cigarette", "이엠텍"],
+    requiredKeywordGroups: [["전자담배", "베이프", "vape", "e-cigarette", "무화기"], ["기기", "카트리지", "히팅", "atomizer", "odm", "부품"]],
+    negativeKeywords: ["마이크로스피커", "음향", "스피커", "배터리팩", "태양광"],
+    tags: ["전자담배", "베이퍼라이저", "무화", "카트리지", "히팅", "ODM"],
     competitors: [
-      { name: "이엠텍", position: "전자담배 ODM·기기 개발", note: "KT&G 릴 기기 개발·생산 경험과 전자담배 ODM 기술/IP 이력을 보유한 가장 강한 직접 비교 대상입니다" },
-      { name: "아이티엠반도체", position: "전자담배 기기·카트리지 부품", note: "KT&G向 전자담배 기기·카트리지 생산 비중이 커지고 있는 핵심 직접 경쟁사입니다" },
-      { name: "파트론", position: "전자담배 OEM·전자부품", note: "전자담배 OEM 매출 확대가 확인되는 코스닥 전자부품사로 생산 효율·고객 다변화 비교에 적합합니다" },
-      { name: "KH바텍", position: "메탈·기구부품(전자담배 인접)", note: "전자담배 관련 특허·신제품 개발 이력과 금속/기구물 제조역량을 보유한 인접 경쟁사입니다" },
-      { name: "SMOORE International", position: "글로벌 전자담배·무화 기술", note: "세계적인 전자담배·무화 기술 제조사로 글로벌 제조역량과 기술 격차를 점검하는 벤치마크 대상입니다" },
+      { name: "이엠텍", position: "전자담배 ODM·기기 개발", tags: ["전자담배", "ODM", "기기", "히팅", "직접경쟁"], directness: "direct", note: "KT&G 릴 기기 개발·생산 경험과 전자담배 ODM 기술/IP 이력을 보유한 가장 강한 직접 비교 대상입니다" },
+      { name: "아이티엠반도체", position: "전자담배 기기·카트리지 부품", tags: ["전자담배", "카트리지", "부품", "직접경쟁"], directness: "direct", note: "KT&G向 전자담배 기기·카트리지 생산 비중이 커지고 있는 핵심 직접 경쟁사입니다" },
+      { name: "파트론", position: "전자담배 OEM·전자부품", tags: ["전자담배", "OEM", "전자부품", "직접경쟁"], directness: "direct", note: "전자담배 OEM 매출 확대가 확인되는 코스닥 전자부품사로 생산 효율·고객 다변화 비교에 적합합니다" },
+      { name: "KH바텍", position: "메탈·기구부품(전자담배 인접)", tags: ["전자담배", "기구부품", "메탈", "인접경쟁"], directness: "adjacent", note: "전자담배 관련 특허·신제품 개발 이력과 금속/기구물 제조역량을 보유한 인접 경쟁사입니다" },
+      { name: "SMOORE International", position: "글로벌 전자담배·무화 기술", tags: ["전자담배", "무화", "atomizer", "글로벌", "직접경쟁"], directness: "direct", note: "세계적인 전자담배·무화 기술 제조사로 글로벌 제조역량과 기술 격차를 점검하는 벤치마크 대상입니다" },
     ],
     peerScores: { strategy: 8, profit: 7, scm: 8, market: 7, operation: 8, finance: 7 },
   },
@@ -263,6 +275,108 @@ const normalizeCompanyName = (value: string) =>
     .toLowerCase()
     .replace(/주식회사|유한회사|합자회사|합명회사|재단법인|사단법인/g, "")
     .replace(/[()\[\]\s㈜.]/g, "");
+
+const normalizeBusinessText = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/[()\[\]{}.,/\-·_\s㈜]/g, "");
+
+const includesBusinessTerm = (text: string, term: string) => Boolean(term.trim()) && text.includes(normalizeBusinessText(term));
+
+function getCompetitorBusinessText(competitor: Competitor) {
+  return normalizeBusinessText([competitor.name, competitor.position, competitor.note, ...(competitor.tags || [])].join(" "));
+}
+
+function getBusinessFitDetails(
+  competitor: Competitor,
+  companyName: string,
+  industry: string,
+  profile: ResearchProfile,
+  liveCompany?: LiveCompany,
+  ownCompany?: LiveCompany,
+) {
+  const competitorText = getCompetitorBusinessText(competitor);
+  const businessText = normalizeBusinessText(`${companyName} ${industry} ${profile.label}`);
+  const reasons: string[] = [];
+  let score = 0;
+
+  if (competitor.directness === "direct") {
+    score += 4;
+    reasons.push("직접 경쟁 태그");
+  } else if (competitor.directness === "adjacent") {
+    score += 2;
+    reasons.push("인접 경쟁 태그");
+  } else if (competitor.directness === "benchmark") {
+    score += 1;
+    reasons.push("벤치마크 태그");
+  }
+
+  for (const group of profile.requiredKeywordGroups || []) {
+    const matched = group.filter((term) => includesBusinessTerm(businessText, term) || includesBusinessTerm(competitorText, term));
+    if (matched.length) {
+      score += 3;
+      reasons.push(`핵심어 ${matched.slice(0, 2).join("/")} 일치`);
+    } else {
+      score -= 2;
+    }
+  }
+
+  const tagMatches = (profile.tags || []).filter((tag) => includesBusinessTerm(competitorText, tag) || includesBusinessTerm(businessText, tag));
+  if (tagMatches.length) {
+    score += Math.min(4, tagMatches.length);
+    reasons.push(`태그 ${tagMatches.slice(0, 2).join("/")} 일치`);
+  }
+
+  const keywordMatches = profile.keywords.filter((keyword) => includesBusinessTerm(competitorText, keyword) || includesBusinessTerm(businessText, keyword));
+  if (keywordMatches.length) score += Math.min(3, keywordMatches.length);
+
+  const negativeMatches = (profile.negativeKeywords || []).filter((keyword) => includesBusinessTerm(competitorText, keyword));
+  if (negativeMatches.length) {
+    score -= negativeMatches.length * 4;
+    reasons.push(`제외어 ${negativeMatches.slice(0, 2).join("/")} 감점`);
+  }
+
+  if (liveCompany?.industryCode && ownCompany?.industryCode && liveCompany.industryCode === ownCompany.industryCode) {
+    score += 4;
+    reasons.push("DART 업종코드 일치");
+  }
+
+  const label = score >= 10 ? "매우 높음" : score >= 7 ? "높음" : score >= 4 ? "보통" : "낮음";
+  return { score, label, summary: reasons.slice(0, 3).join(" · ") || `${profile.label} 기준 기본 후보` };
+}
+
+function rankCompetitorsByBusinessFit(
+  competitors: Competitor[],
+  companyName: string,
+  industry: string,
+  profile: ResearchProfile,
+  liveCompanies: LiveCompany[] = [],
+  ownCompany?: LiveCompany,
+) {
+  const normalizedCompanyName = normalizeCompanyName(companyName);
+  const scored = competitors
+    .filter((competitor) => {
+      const normalizedCompetitorName = normalizeCompanyName(competitor.name);
+      return competitor.name.trim() && normalizedCompetitorName !== normalizedCompanyName;
+    })
+    .map((competitor, index) => {
+      const liveCompany = liveCompanies.find((company) => isCompanyNameMatch(competitor.name, company.corpName));
+      const fit = getBusinessFitDetails(competitor, companyName, industry, profile, liveCompany, ownCompany);
+      return { competitor, index, liveCompany, fit };
+    })
+    .sort((a, b) => {
+      const industryMatchGap = Number(Boolean(b.liveCompany?.industryCode && ownCompany?.industryCode && b.liveCompany.industryCode === ownCompany.industryCode))
+        - Number(Boolean(a.liveCompany?.industryCode && ownCompany?.industryCode && a.liveCompany.industryCode === ownCompany.industryCode));
+      if (industryMatchGap) return industryMatchGap;
+      if (b.fit.score !== a.fit.score) return b.fit.score - a.fit.score;
+      return a.index - b.index;
+    });
+
+  if (!profile.requiredKeywordGroups?.length) return scored;
+
+  const strongMatches = scored.filter((item) => item.fit.score >= 4);
+  return strongMatches.length >= Math.min(3, scored.length) ? strongMatches : scored;
+}
 
 function matchProfileByText(text: string) {
   if (!text) return undefined;
@@ -325,6 +439,7 @@ function buildCandidate(
   source: CompetitorCandidate["source"] = "DART/KOSIS",
   liveCompany?: LiveCompany,
   ownCompany?: LiveCompany,
+  fit?: { score: number; label: string; summary: string },
 ): CompetitorCandidate {
   const reasonTemplates = [
     "DART 공시 기준 사업영역이 유사하고, KOSIS 산업분류상 동일·인접 업종 비교가 가능합니다.",
@@ -345,9 +460,10 @@ function buildCandidate(
   return {
     name: competitor.name,
     industryField: competitor.position || industry || "동종·인접 산업",
-    reason: `${baseCompany}의 경쟁력 기준점으로 선정했습니다. ${evidence}${liveTag ? ` (DART 확인: ${liveTag})` : ""} ${competitor.note ? `추가 근거: ${competitor.note}` : ""}`.trim(),
+    reason: `${baseCompany}의 경쟁력 기준점으로 선정했습니다. ${fit ? `사업부문 적합도 ${fit.label}(${fit.summary}). ` : ""}${evidence}${liveTag ? ` (DART 확인: ${liveTag})` : ""} ${competitor.note ? `추가 근거: ${competitor.note}` : ""}`.trim(),
     source,
     industryMatch,
+    fitScore: fit?.score,
   };
 }
 
@@ -359,18 +475,10 @@ function buildCandidates(
   liveCompanies: LiveCompany[] = [],
   ownCompany?: LiveCompany,
 ) {
-  const normalizedCompanyName = normalizeCompanyName(companyName);
-  return competitors
-    .filter((competitor) => {
-      const normalizedCompetitorName = normalizeCompanyName(competitor.name);
-      return competitor.name.trim() && normalizedCompetitorName !== normalizedCompanyName;
-    })
+  const profile = getResearchProfile(companyName, industry);
+  return rankCompetitorsByBusinessFit(competitors, companyName, industry, profile, liveCompanies, ownCompany)
     .slice(0, 5)
-    .map((competitor, index) => {
-      const liveCompany = liveCompanies.find((company) => isCompanyNameMatch(competitor.name, company.corpName));
-      return buildCandidate(competitor, index, companyName, industry, source, liveCompany, ownCompany);
-    })
-    .sort((a, b) => Number(b.industryMatch) - Number(a.industryMatch));
+    .map((item, index) => buildCandidate(item.competitor, index, companyName, industry, source, item.liveCompany, ownCompany, item.fit));
 }
 
 function hasLegacyGenericNames(rows: Array<{ name: string }>) {
