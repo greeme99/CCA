@@ -8,11 +8,14 @@ const seedCompanies = [
   { corpName: "비에이치", stockCode: "090460", industryCode: "FPCB·전자부품" },
   { corpName: "인터플렉스", stockCode: "051370", industryCode: "연성인쇄회로기판" },
   { corpName: "대덕전자", stockCode: "353200", industryCode: "PCB·반도체 패키지기판" },
+  { corpName: "효성중공업", stockCode: "298040", industryCode: "대용량 태양광 인버터·전력기기" },
+  { corpName: "OCI파워", stockCode: "", industryCode: "대용량 태양광 인버터·발전 프로젝트" },
   { corpName: "다쓰테크", stockCode: "", industryCode: "태양광 인버터 전문" },
   { corpName: "윌링스", stockCode: "313760", industryCode: "태양광 인버터·ESS PCS" },
-  { corpName: "카코뉴에너지", stockCode: "", industryCode: "태양광 인버터 제조" },
-  { corpName: "헥스파워시스템", stockCode: "", industryCode: "계통연계 PV 인버터" },
-  { corpName: "LS ELECTRIC", stockCode: "010120", industryCode: "전력기기·태양광/ESS PCS" },
+  { corpName: "신성이엔지", stockCode: "011930", industryCode: "태양광 인버터·설치형 신재생 솔루션" },
+  { corpName: "카코뉴에너지", stockCode: "", industryCode: "태양광 인버터 제조·2차 후보" },
+  { corpName: "헥스파워시스템", stockCode: "", industryCode: "계통연계 PV 인버터·2차 후보" },
+  { corpName: "LS ELECTRIC", stockCode: "010120", industryCode: "전력기기·태양광/ESS PCS 인접 벤치마크" },
 ];
 
 function formatDate(date) {

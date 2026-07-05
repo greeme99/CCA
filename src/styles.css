@@ -426,6 +426,79 @@ textarea:focus {
   padding: 5px 8px;
 }
 
+.solar-comparison-panel {
+  background: #ffffff;
+  border: 1px solid #dfe6dc;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-column: 1 / -1;
+  overflow: hidden;
+  padding: 14px;
+}
+
+.solar-comparison-table {
+  display: grid;
+  gap: 0;
+  overflow-x: auto;
+}
+
+.solar-comparison-head,
+.solar-comparison-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(130px, 0.75fr) minmax(160px, 1fr) minmax(190px, 1.1fr) minmax(220px, 1.25fr) minmax(230px, 1.3fr);
+  min-width: 980px;
+}
+
+.solar-comparison-head {
+  background: #eef5ef;
+  border: 1px solid #d7dfd4;
+  border-radius: 8px 8px 0 0;
+  color: #12382f;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 10px 12px;
+}
+
+.solar-comparison-row {
+  border-color: #e5ebe2;
+  border-style: solid;
+  border-width: 0 1px 1px;
+  color: #405249;
+  font-size: 12px;
+  line-height: 1.55;
+  padding: 12px;
+}
+
+.solar-comparison-row:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+.solar-comparison-row.own {
+  background: #fbf7e9;
+}
+
+.solar-comparison-row div {
+  display: grid;
+  gap: 4px;
+}
+
+.solar-comparison-row strong {
+  color: #12382f;
+  font-size: 14px;
+}
+
+.solar-comparison-row small {
+  color: #66766e;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.solar-comparison-row span {
+  min-width: 0;
+}
+
 .live-result-list {
   display: grid;
   gap: 8px;

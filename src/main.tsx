@@ -7,6 +7,7 @@ type AxisKey = "strategy" | "profit" | "scm" | "market" | "operation" | "finance
 type Risk = "낮음" | "보통" | "높음";
 type Score = { own: number; peer: number; note: string };
 type Competitor = { name: string; position: string; note: string; tags?: string[]; directness?: "direct" | "adjacent" | "benchmark" };
+type LearnedCompetitorSignal = { industryKey: string; companyName: string; terms: string[]; count: number; updatedAt: string };
 type Supplier = { name: string; dependence: number; leadTime: number; risk: Risk };
 type Action = { task: string; owner: string; kpi: string; due: string };
 type LiveCompany = { corpCode: string; corpName: string; stockCode: string; modifyDate: string; ceo?: string; address?: string; industryCode?: string };
@@ -153,11 +154,11 @@ const researchProfiles: ResearchProfile[] = [
     negativeKeywords: ["스마트폰", "반도체", "디스플레이", "생활가전", "자동차부품"],
     tags: ["태양광", "인버터", "PV", "PCS", "전력변환", "ESS"],
     competitors: [
-      { name: "다쓰테크", position: "태양광 인버터 전문", tags: ["태양광", "인버터", "PV", "전력변환", "직접경쟁"], directness: "direct", note: "태양광 인버터 전문기업으로 스트링·센트럴 인버터와 대용량 발전소 시장 대응 역량을 보유해 동양이엔피의 태양광 인버터 사업과 직접 비교 가능" },
-      { name: "윌링스", position: "태양광 인버터·ESS PCS", tags: ["태양광", "인버터", "ESS", "PCS", "전력변환", "직접경쟁"], directness: "direct", note: "태양광 발전용 인버터와 ESS용 PCS 공급 실적이 있어 전력변환 기술, 프로젝트 수주, 발전소 고객 대응력 비교 가능" },
-      { name: "카코뉴에너지", position: "태양광 인버터 제조", tags: ["태양광", "인버터", "PV", "직접경쟁"], directness: "direct", note: "태양광 발전용 인버터 개발·제조·판매를 주력으로 해 국내 발전소·상업용 인버터 시장의 직접 비교 대상" },
-      { name: "헥스파워시스템", position: "계통연계 PV 인버터", tags: ["태양광", "PV", "인버터", "계통연계", "직접경쟁"], directness: "direct", note: "단상 소용량부터 삼상 대용량 인버터까지 생산하는 태양광 인버터 전문 제조사로 제품 라인업과 A/S 역량 비교 가능" },
-      { name: "LS ELECTRIC", position: "전력기기·태양광/ESS PCS", tags: ["태양광", "ESS", "PCS", "전력변환", "전력기기", "인접경쟁"], directness: "adjacent", note: "전력기기, 스마트그리드, 태양광·ESS 전력변환 솔루션을 보유해 대형 프로젝트와 계통 연계 관점의 벤치마크 가능" },
+      { name: "효성중공업", position: "대용량 태양광 인버터·전력기기", tags: ["태양광", "인버터", "대용량", "전력기기", "공공프로젝트", "A/S", "직접경쟁"], directness: "direct", note: "국내 태양광 인버터 기업군에서 대용량 시장에 참여하는 핵심 플레이어로, 공공·대규모 프로젝트의 인증·납기·A/S·레퍼런스 기준에서 동양이엔피와 직접 비교 가능" },
+      { name: "OCI파워", position: "대용량 태양광 인버터·발전 프로젝트", tags: ["태양광", "인버터", "대용량", "발전사업", "프로젝트", "공공조달", "직접경쟁"], directness: "direct", note: "국내 대용량 태양광 인버터 보급에 나서는 주요 업체로, 발전사업 고객과 프로젝트형 수요 대응력 측면에서 직접 경쟁 가능" },
+      { name: "다쓰테크", position: "태양광 인버터 전문", tags: ["태양광", "인버터", "대용량", "PV", "전력변환", "국내전문기업", "직접경쟁"], directness: "direct", note: "국내 태양광 인버터 대표 전문기업 중 하나로 스트링·센트럴 인버터와 대용량 발전소 시장 대응 역량을 보유해 동양이엔피의 태양광 인버터 사업과 직접 비교 가능" },
+      { name: "윌링스", position: "태양광 인버터·ESS PCS", tags: ["태양광", "인버터", "ESS", "PCS", "새만금", "프로젝트", "전력변환", "직접경쟁"], directness: "direct", note: "태양광 발전용 인버터와 ESS용 PCS 공급 실적 및 대형 프로젝트 수주 사례가 있어 프로젝트 레퍼런스, 효율, 납기 대응력 비교 가능" },
+      { name: "신성이엔지", position: "태양광 인버터·설치형 신재생 솔루션", tags: ["태양광", "인버터", "설치형", "사업용", "신재생", "프로젝트", "직접경쟁"], directness: "direct", note: "국내 태양광 인버터 시장 참여 기업으로 설치형·사업용 수요에서 겹치며 가격, 효율, 레퍼런스, 공공조달 대응력 비교가 필요" },
     ],
     peerScores: { strategy: 8, profit: 7, scm: 7, market: 8, operation: 8, finance: 7 },
   },
@@ -241,6 +242,57 @@ const researchProfiles: ResearchProfile[] = [
   },
 ];
 
+const solarInverterComparisonRows = [
+  {
+    company: "동양이엔피",
+    role: "당사",
+    capacity: "설치형·대용량 수요 확대 단계",
+    customers: "국내 태양광 설치형 수요, 에너지 인프라 신사업 고객",
+    priceEfficiency: "전원공급·전력변환 제조 역량 기반. 가격·효율은 프로젝트 레퍼런스 축적으로 검증 필요",
+    references: "태양광 인버터를 신성장 사업으로 확대 중. 공공·대형 프로젝트 인증, 납기, A/S 레퍼런스 확보가 핵심",
+  },
+  {
+    company: "효성중공업",
+    role: "직접 경쟁사",
+    capacity: "대용량·계통연계 프로젝트 중심",
+    customers: "공공·민간 대규모 발전 프로젝트, 전력 인프라 고객",
+    priceEfficiency: "대형 전력기기 기반의 신뢰성·A/S 강점. 가격보다는 인증, 납기, 운영 안정성 비교 필요",
+    references: "국내 태양광 인버터 대용량 시장 참여 핵심 플레이어로 반복 언급",
+  },
+  {
+    company: "OCI파워",
+    role: "직접 경쟁사",
+    capacity: "대용량 태양광 인버터 보급 영역",
+    customers: "발전사업자, 대형 태양광 프로젝트 발주처",
+    priceEfficiency: "프로젝트형 가격 제안력과 발전사업 이해도가 비교 포인트. 효율·보증 조건 확인 필요",
+    references: "국내 대용량 태양광 인버터 보급 주요 업체로 언급",
+  },
+  {
+    company: "다쓰테크",
+    role: "직접 경쟁사",
+    capacity: "스트링·센트럴·대용량 발전소 대응",
+    customers: "국내 발전소, 상업용·공공 태양광 프로젝트",
+    priceEfficiency: "전문기업형 가격 경쟁력, 제품 라인업, 변환 효율, A/S 대응력이 비교 기준",
+    references: "국내 태양광 인버터 대표 전문기업군으로 분류",
+  },
+  {
+    company: "윌링스",
+    role: "직접 경쟁사",
+    capacity: "태양광 인버터와 ESS PCS, 프로젝트형 수요",
+    customers: "대형 태양광·ESS 프로젝트, 발전사업 고객",
+    priceEfficiency: "PCS 연계, 효율, 납기, 프로젝트 수행 경험이 비교 포인트",
+    references: "새만금 등 대형 프로젝트 수주 사례가 있어 레퍼런스 경쟁력이 강함",
+  },
+  {
+    company: "신성이엔지",
+    role: "직접 경쟁사",
+    capacity: "설치형·사업용 태양광 수요",
+    customers: "국내 신재생 설치형 고객, 사업용 태양광 프로젝트",
+    priceEfficiency: "설치형 수요 대응 가격, 효율, 채널·시공 연계력이 비교 포인트",
+    references: "국내 태양광 인버터 시장 참여 기업으로 반복 언급",
+  },
+];
+
 const defaultResearchProfile: ResearchProfile = {
   label: "일반 제조·서비스",
   keywords: [],
@@ -265,6 +317,7 @@ const researchSites = [
 ];
 
 const storageKey = "succession-competitiveness-workbench";
+const learningStorageKey = "succession-competitiveness-learning";
 const clone = <T,>(value: T) => JSON.parse(JSON.stringify(value)) as T;
 const avg = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
 const firstLine = (value: string, fallback: string) => value.split("\n").map((line) => line.trim()).filter(Boolean)[0] || fallback;
@@ -287,6 +340,102 @@ function getCompetitorBusinessText(competitor: Competitor) {
   return normalizeBusinessText([competitor.name, competitor.position, competitor.note, ...(competitor.tags || [])].join(" "));
 }
 
+const businessSignalLexicon = [
+  { group: "capacity", terms: ["대용량", "소용량", "중대형", "설치형", "사업용", "공공", "프로젝트", "양산", "대량", "프리미엄", "저가", "고효율"] },
+  { group: "customer", terms: ["공공", "발전사업", "완성차", "스마트폰", "의료기기", "가전", "B2B", "B2C", "ODM", "OEM", "조달", "상업용", "산업용"] },
+  { group: "value", terms: ["가격", "효율", "품질", "납기", "A/S", "인증", "레퍼런스", "수율", "원가", "보증", "채널", "브랜드"] },
+  { group: "technology", terms: ["인버터", "PCS", "BMS", "PCB", "PBA", "FPCB", "모듈", "배터리팩", "반도체", "전력변환", "ESS", "히팅", "카트리지", "무화"] },
+  { group: "market", terms: ["국내", "해외", "글로벌", "신재생", "전장", "모빌리티", "에너지", "전자부품", "프로젝트형", "설치", "대체재"] },
+];
+
+function uniqueTerms(terms: string[]) {
+  const seen = new Set<string>();
+  return terms
+    .map((term) => term.trim())
+    .filter(Boolean)
+    .filter((term) => {
+      const normalized = normalizeBusinessText(term);
+      if (!normalized || seen.has(normalized)) return false;
+      seen.add(normalized);
+      return true;
+    });
+}
+
+function getIndustryKey(companyName: string, industry: string, profile: ResearchProfile) {
+  const keySource = industry.trim() || profile.label || companyName.trim() || "general";
+  return normalizeBusinessText(keySource).slice(0, 80) || "general";
+}
+
+function extractBusinessSignals(text: string, profile?: ResearchProfile) {
+  const normalized = normalizeBusinessText(text);
+  const profileTerms = [
+    ...(profile?.keywords || []),
+    ...(profile?.tags || []),
+    ...((profile?.requiredKeywordGroups || []).flat()),
+  ];
+  const lexiconTerms = businessSignalLexicon.flatMap((item) => item.terms);
+  return uniqueTerms([...profileTerms, ...lexiconTerms].filter((term) => includesBusinessTerm(normalized, term)));
+}
+
+function getSignalGroups(terms: string[]) {
+  const normalizedTerms = terms.map(normalizeBusinessText);
+  return businessSignalLexicon
+    .filter((group) => group.terms.some((term) => normalizedTerms.includes(normalizeBusinessText(term))))
+    .map((group) => group.group);
+}
+
+function readLearnedCompetitorSignals(): LearnedCompetitorSignal[] {
+  try {
+    const raw = localStorage.getItem(learningStorageKey);
+    return raw ? JSON.parse(raw) as LearnedCompetitorSignal[] : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLearnedCompetitorSignals(signals: LearnedCompetitorSignal[]) {
+  try {
+    localStorage.setItem(learningStorageKey, JSON.stringify(signals.slice(-120)));
+  } catch {
+    // 학습 메모리 저장 실패는 추천 기능을 막지 않습니다.
+  }
+}
+
+function rememberCompetitorSignals(companyName: string, industry: string, profile: ResearchProfile, competitors: Competitor[]) {
+  if (!industry.trim() && !profile.label) return;
+  const industryKey = getIndustryKey(companyName, industry, profile);
+  const now = new Date().toISOString();
+  const learned = readLearnedCompetitorSignals();
+  const next = [...learned];
+
+  for (const competitor of competitors.filter((item) => item.name.trim())) {
+    const terms = extractBusinessSignals([competitor.name, competitor.position, competitor.note, ...(competitor.tags || [])].join(" "), profile);
+    if (!terms.length) continue;
+    const normalizedName = normalizeCompanyName(competitor.name);
+    const existing = next.find((item) => item.industryKey === industryKey && normalizeCompanyName(item.companyName) === normalizedName);
+    if (existing) {
+      existing.terms = uniqueTerms([...existing.terms, ...terms]).slice(0, 24);
+      existing.count = Math.min(20, existing.count + 1);
+      existing.updatedAt = now;
+    } else {
+      next.push({ industryKey, companyName: competitor.name, terms: terms.slice(0, 24), count: 1, updatedAt: now });
+    }
+  }
+
+  writeLearnedCompetitorSignals(next);
+}
+
+function getLearnedSignalBoost(companyName: string, industry: string, profile: ResearchProfile, competitor: Competitor) {
+  const industryKey = getIndustryKey(companyName, industry, profile);
+  const normalizedName = normalizeCompanyName(competitor.name);
+  const learned = readLearnedCompetitorSignals().find((item) => item.industryKey === industryKey && normalizeCompanyName(item.companyName) === normalizedName);
+  if (!learned) return { score: 0, reason: "" };
+  return {
+    score: Math.min(3, learned.count),
+    reason: `사용자 검증 신호 ${learned.terms.slice(0, 2).join("/")} 누적`,
+  };
+}
+
 function getBusinessFitDetails(
   competitor: Competitor,
   companyName: string,
@@ -297,8 +446,28 @@ function getBusinessFitDetails(
 ) {
   const competitorText = getCompetitorBusinessText(competitor);
   const businessText = normalizeBusinessText(`${companyName} ${industry} ${profile.label}`);
+  const businessSignals = extractBusinessSignals(`${companyName} ${industry} ${profile.label}`, profile);
+  const competitorSignals = extractBusinessSignals([competitor.name, competitor.position, competitor.note, ...(competitor.tags || [])].join(" "), profile);
+  const sharedSignals = businessSignals.filter((term) => competitorSignals.some((candidate) => normalizeBusinessText(candidate) === normalizeBusinessText(term)));
+  const sharedGroups = getSignalGroups(sharedSignals);
+  const learnedBoost = getLearnedSignalBoost(companyName, industry, profile, competitor);
   const reasons: string[] = [];
   let score = 0;
+
+  if (sharedSignals.length) {
+    score += Math.min(5, sharedSignals.length);
+    reasons.push(`사업특성 ${sharedSignals.slice(0, 2).join("/")} 일치`);
+  }
+
+  if (sharedGroups.length >= 2) {
+    score += 2;
+    reasons.push(`고객·기술·시장 신호 ${sharedGroups.slice(0, 2).join("/")} 교차`);
+  }
+
+  if (learnedBoost.score) {
+    score += learnedBoost.score;
+    reasons.push(learnedBoost.reason);
+  }
 
   if (competitor.directness === "direct") {
     score += 4;
@@ -342,7 +511,7 @@ function getBusinessFitDetails(
   }
 
   const label = score >= 10 ? "매우 높음" : score >= 7 ? "높음" : score >= 4 ? "보통" : "낮음";
-  return { score, label, summary: reasons.slice(0, 3).join(" · ") || `${profile.label} 기준 기본 후보` };
+  return { score, label, summary: reasons.slice(0, 4).join(" · ") || `${profile.label} 기준 기본 후보` };
 }
 
 function rankCompetitorsByBusinessFit(
@@ -854,7 +1023,8 @@ function App() {
   const highRiskSuppliers = state.suppliers.filter((supplier) => supplier.risk === "높음" || supplier.dependence >= 50);
   const validActions = state.actions.filter((action) => action.task || action.owner || action.kpi || action.due);
   const researchProfile = useMemo(() => getResearchProfile(state.companyName, state.industry), [state.companyName, state.industry]);
-  const validCompetitors = state.competitors.filter((competitor) => competitor.name.trim());
+  const showSolarInverterComparison = researchProfile.label === "태양광 인버터·전력변환";
+  const validCompetitors = useMemo(() => state.competitors.filter((competitor) => competitor.name.trim()), [state.competitors]);
   const displayCandidates = state.competitorCandidates.length ? state.competitorCandidates : buildCandidates(validCompetitors, state.companyName, state.industry);
   const markdownReport = useMemo(() => buildMarkdownReport(state, scoreAverage, biggestGap, tows), [biggestGap, scoreAverage, state, tows]);
   const tabs = [
@@ -865,6 +1035,11 @@ function App() {
     ["actions", Target, "실행 KPI"],
     ["report", FileText, "보고서"],
   ] as const;
+
+  useEffect(() => {
+    if (!validCompetitors.length || (!state.industry.trim() && researchProfile === defaultResearchProfile)) return;
+    rememberCompetitorSignals(state.companyName, state.industry, researchProfile, validCompetitors);
+  }, [researchProfile, state.companyName, state.industry, validCompetitors]);
 
   useEffect(() => {
     if (
@@ -1111,6 +1286,32 @@ function App() {
                       <em>{candidate.source}</em>
                     </article>
                   ))}
+                </div>
+              )}
+              {showSolarInverterComparison && (
+                <div className="solar-comparison-panel">
+                  <div className="candidate-heading">
+                    <strong>동양이엔피 vs 태양광 인버터 직접 경쟁사</strong>
+                    <span>용량대 · 고객군 · 가격/효율 · 레퍼런스 비교</span>
+                  </div>
+                  <div className="solar-comparison-table" role="table" aria-label="동양이엔피 태양광 인버터 경쟁사 비교표">
+                    <div className="solar-comparison-head" role="row">
+                      <span>기업</span>
+                      <span>용량대</span>
+                      <span>고객군</span>
+                      <span>가격/효율</span>
+                      <span>레퍼런스</span>
+                    </div>
+                    {solarInverterComparisonRows.map((row) => (
+                      <article className={row.role === "당사" ? "solar-comparison-row own" : "solar-comparison-row"} key={row.company} role="row">
+                        <div><strong>{row.company}</strong><small>{row.role}</small></div>
+                        <span>{row.capacity}</span>
+                        <span>{row.customers}</span>
+                        <span>{row.priceEfficiency}</span>
+                        <span>{row.references}</span>
+                      </article>
+                    ))}
+                  </div>
                 </div>
               )}
               {state.liveCompetitors.length > 0 && (
