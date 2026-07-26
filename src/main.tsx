@@ -1,17 +1,49 @@
 import { StrictMode, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { BarChart3, Building2, ClipboardList, Download, ExternalLink, Factory, FileText, Network, Plus, Printer, RefreshCw, Search, ShieldCheck, Target, Trash2, TrendingUp, Users, Wand2 } from "lucide-react";
+import { Background, Controls, Handle, MarkerType, Position, ReactFlow, type Edge, type Node, type NodeTypes } from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+import { BarChart3, ClipboardList, Download, ExternalLink, Factory, FileText, Network, PanelLeftClose, PanelLeftOpen, Plus, Printer, RefreshCw, Search, ShieldCheck, Target, Trash2, TrendingUp, Users, Wand2 } from "lucide-react";
 import "./styles.css";
 
 type AxisKey = "strategy" | "profit" | "scm" | "market" | "operation" | "finance";
 type Risk = "낮음" | "보통" | "높음";
-type Score = { own: number; peer: number; note: string };
+type Score = { own: number; peer: number; note: string; source?: "자동 추정" | "DART/KOSIS" | "사용자 입력" | "검증 필요"; confidence?: number; reasons?: string[] };
 type Competitor = { name: string; position: string; note: string; tags?: string[]; directness?: "direct" | "adjacent" | "benchmark" };
+type ExecutiveRole = "CEO" | "CFO" | "COO" | "CMO" | "CSO" | "전략기획팀장" | "마케팅팀장" | "경영지원팀장";
+type DepartmentName = "전략기획" | "마케팅" | "경영지원" | "운영/SCM" | "재무";
+type DepartmentActionPlan = Action & { department: DepartmentName; rationale: string };
+type DecisionAgenda = { title: string; owner: string; decision: string };
+type SwotCategory = "strengths" | "weaknesses" | "opportunities" | "threats";
+type SwotItem = {
+  id: string;
+  category: SwotCategory;
+  content: string;
+  evidence: string;
+  impact: number;
+  certainty: number;
+  competitor: string;
+  axis: AxisKey;
+};
+type TowsStrategy = {
+  label: "SO" | "ST" | "WO" | "WT";
+  name: string;
+  logic: string;
+  action90: string;
+  kpi: string;
+  risk: string;
+  priority: "상" | "중" | "하";
+  owner: DepartmentName;
+};
 type LearnedCompetitorSignal = { industryKey: string; companyName: string; terms: string[]; count: number; updatedAt: string };
-type Supplier = { name: string; dependence: number; leadTime: number; risk: Risk };
+type ScmNodeType = "원재료" | "부품" | "외주공정" | "물류" | "생산거점" | "주요 고객";
+type Supplier = { name: string; type: ScmNodeType; dependence: number; leadTime: number; alternatives: number; qualityIssues: number; certificationRequired: boolean; regionRisk: Risk; risk: Risk };
 type Action = { task: string; owner: string; kpi: string; due: string };
 type LiveCompany = { corpCode: string; corpName: string; stockCode: string; modifyDate: string; ceo?: string; address?: string; industryCode?: string };
 type CompetitorCandidate = { name: string; industryField: string; reason: string; source: "DART/KOSIS" | "업종 키워드"; industryMatch?: boolean; fitScore?: number };
+type AxisSubMetric = { label: string; ownSignal: string; peerSignal: string };
+type AxisDetail = { axis: AxisKey; subMetrics: Array<AxisSubMetric & { own: number; peer: number; reason: string }>; source: NonNullable<Score["source"]>; confidence: number; reasons: string[] };
+type CompetitorAxisScore = { competitor: string; scores: Record<AxisKey, number>; reason: string; fitScore: number };
+type ScmFlowData = { label: string; nodeType: ScmNodeType | "회사"; riskScore: number; badges: string[] };
 type ResearchProfile = {
   label: string;
   keywords: string[];
@@ -24,11 +56,12 @@ type ResearchProfile = {
 type AppState = {
   companyName: string;
   industry: string;
+  role: ExecutiveRole;
   purpose: string;
   period: string;
   competitors: Competitor[];
   scores: Record<AxisKey, Score>;
-  swot: { strengths: string; weaknesses: string; opportunities: string; threats: string };
+  swot: Record<SwotCategory, SwotItem[]>;
   suppliers: Supplier[];
   actions: Action[];
   liveCompetitors: LiveCompany[];
@@ -42,6 +75,239 @@ const envKosisKey = import.meta.env.VITE_KOSIS_API_KEY || "";
 const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
 const dartCacheUrl = `${import.meta.env.BASE_URL}data/opendart-companies.json`;
 
+const executiveRoles: Array<{ role: ExecutiveRole; label: string; focus: string; decisionLens: string; primaryAxes: AxisKey[] }> = [
+  { role: "CEO", label: "CEO/대표", focus: "성장 방향과 경쟁우위 유지", decisionLens: "어디에 자원을 집중하고 어떤 경쟁위협을 먼저 막을지 결정합니다.", primaryAxes: ["strategy", "market", "finance"] },
+  { role: "CFO", label: "CFO/재무임원", focus: "수익성, 현금흐름, 투자여력", decisionLens: "마진 방어와 투자 회수 가능성을 기준으로 경쟁력을 판단합니다.", primaryAxes: ["profit", "finance", "strategy"] },
+  { role: "COO", label: "COO/운영임원", focus: "운영 효율, 품질, 납기", decisionLens: "생산성, 품질, 납기 안정성의 실행 격차를 우선 점검합니다.", primaryAxes: ["operation", "scm", "profit"] },
+  { role: "CMO", label: "CMO/마케팅임원", focus: "시장, 고객, 채널, 포지셔닝", decisionLens: "고객군과 채널에서 이길 수 있는 차별화 포인트를 찾습니다.", primaryAxes: ["market", "strategy", "profit"] },
+  { role: "CSO", label: "CSO/전략임원", focus: "전략 옵션, 포트폴리오, 제휴", decisionLens: "신사업, 제휴, 포트폴리오 전환의 선택지를 비교합니다.", primaryAxes: ["strategy", "market", "finance"] },
+  { role: "전략기획팀장", label: "전략기획팀장", focus: "경쟁사 벤치마크와 중장기 전략과제", decisionLens: "경쟁사 대비 우선순위와 실행 로드맵을 구조화합니다.", primaryAxes: ["strategy", "market", "operation"] },
+  { role: "마케팅팀장", label: "마케팅팀장", focus: "타깃 고객, 가격, 채널, 메시지", decisionLens: "고객군별 포지셔닝과 채널 실행안을 구체화합니다.", primaryAxes: ["market", "profit", "strategy"] },
+  { role: "경영지원팀장", label: "경영지원팀장", focus: "조직, 예산, KPI, 리스크 관리", decisionLens: "전략을 실행 가능한 과제, 예산, KPI 체계로 전환합니다.", primaryAxes: ["operation", "finance", "scm"] },
+];
+
+const scmNodeTypes: ScmNodeType[] = ["원재료", "부품", "외주공정", "물류", "생산거점", "주요 고객"];
+
+function createScmNode(patch: Partial<Supplier> = {}): Supplier {
+  return {
+    name: "",
+    type: "부품",
+    dependence: 30,
+    leadTime: 14,
+    alternatives: 1,
+    qualityIssues: 0,
+    certificationRequired: false,
+    regionRisk: "보통",
+    risk: "보통",
+    ...patch,
+  };
+}
+
+function getScmRiskScore(node: Supplier) {
+  const dependenceScore = Math.min(35, Math.max(0, node.dependence) * 0.35);
+  const leadTimeScore = Math.min(25, Math.max(0, node.leadTime) / 60 * 25);
+  const alternativeScore = node.alternatives <= 0 ? 18 : node.alternatives === 1 ? 12 : node.alternatives === 2 ? 6 : 0;
+  const qualityScore = Math.min(12, Math.max(0, node.qualityIssues) * 4);
+  const certificationScore = node.certificationRequired ? 6 : 0;
+  const regionScore = node.regionRisk === "높음" ? 8 : node.regionRisk === "보통" ? 4 : 0;
+  return Math.min(100, Math.round(dependenceScore + leadTimeScore + alternativeScore + qualityScore + certificationScore + regionScore));
+}
+
+function getScmRiskLevel(score: number): Risk {
+  if (score >= 70) return "높음";
+  if (score >= 40) return "보통";
+  return "낮음";
+}
+
+function getScmRiskBadges(node: Supplier) {
+  const badges: string[] = [];
+  if (node.dependence >= 50) badges.push("핵심 병목");
+  if (node.alternatives <= 1) badges.push("단일소스 위험");
+  if (node.leadTime >= 30) badges.push("장기 리드타임");
+  if (node.qualityIssues >= 2) badges.push("품질 이슈");
+  if (node.certificationRequired) badges.push("인증 선행");
+  if (node.regionRisk === "높음") badges.push("지역 리스크");
+  return badges;
+}
+
+function hydrateSupplier(value: Partial<Supplier>): Supplier {
+  const node = createScmNode(value);
+  const score = getScmRiskScore(node);
+  return { ...node, risk: getScmRiskLevel(score) };
+}
+
+type ScmRiskSummary = {
+  averageRisk: number;
+  maxRisk: number;
+  bottlenecks: Supplier[];
+  singleSources: Supplier[];
+  longLeadTimes: Supplier[];
+  highRiskNodes: Supplier[];
+  recommendedScore: number;
+  headline: string;
+};
+
+function buildScmRiskSummary(nodes: Supplier[]): ScmRiskSummary {
+  const activeNodes = nodes.filter((node) => node.name.trim() || node.dependence || node.leadTime);
+  const scores = activeNodes.map(getScmRiskScore);
+  const averageRisk = scores.length ? Math.round(avg(scores)) : 0;
+  const maxRisk = scores.length ? Math.max(...scores) : 0;
+  const bottlenecks = activeNodes.filter((node) => node.dependence >= 50);
+  const singleSources = activeNodes.filter((node) => node.alternatives <= 1);
+  const longLeadTimes = activeNodes.filter((node) => node.leadTime >= 30);
+  const highRiskNodes = activeNodes.filter((node) => getScmRiskScore(node) >= 70 || getScmRiskBadges(node).length >= 2);
+  const penalty = Math.min(5, Math.round(maxRisk / 25) + Math.min(2, highRiskNodes.length));
+  const recommendedScore = clampScore(8 - penalty);
+  const headline = highRiskNodes.length
+    ? `${highRiskNodes.length}개 고위험 SCM 노드가 6축 SCM 점수와 실행 과제에 반영되어야 합니다.`
+    : "현재 SCM 노드는 관리 가능한 범위입니다. 대체 공급처와 납기 지표를 계속 추적하세요.";
+  return { averageRisk, maxRisk, bottlenecks, singleSources, longLeadTimes, highRiskNodes, recommendedScore, headline };
+}
+
+function buildScmWeaknessItem(summary: ScmRiskSummary): SwotItem {
+  const target = summary.highRiskNodes[0] || summary.bottlenecks[0] || summary.singleSources[0] || summary.longLeadTimes[0];
+  const nodeName = target?.name || "핵심 SCM 노드";
+  const badges = target ? getScmRiskBadges(target).join(" · ") : "공급망 리스크";
+  return createSwotItem(
+    "weaknesses",
+    `${nodeName} 중심의 SCM 병목·단일소스 리스크`,
+    `Step 4 자동 진단: 평균 위험도 ${summary.averageRisk}점, 최대 위험도 ${summary.maxRisk}점${badges ? ` · ${badges}` : ""}`,
+    5,
+    summary.maxRisk >= 70 ? 5 : 4,
+    "",
+    "scm",
+  );
+}
+
+function buildScmActionPlan(summary: ScmRiskSummary): DepartmentActionPlan {
+  const target = summary.highRiskNodes[0] || summary.bottlenecks[0] || summary.singleSources[0] || summary.longLeadTimes[0];
+  const nodeName = target?.name || "핵심 SCM 노드";
+  const badges = target ? getScmRiskBadges(target) : [];
+  const mainTask = badges.includes("단일소스 위험")
+    ? `${nodeName} 대체 공급처 2곳 발굴·인증`
+    : badges.includes("장기 리드타임")
+      ? `${nodeName} 안전재고 기준과 납기 SLA 재설계`
+      : `${nodeName} SCM 리스크 저감 실행안 수립`;
+  return {
+    department: "운영/SCM",
+    task: mainTask,
+    owner: "운영/SCM",
+    kpi: "위험도 20점 이상 감소, 대체 수 2개 이상, 리드타임 20% 단축",
+    due: getPurposeDueMonth(3),
+    rationale: summary.headline,
+  };
+}
+
+function buildScmCompetitorRows(competitors: Competitor[], competitorScores: CompetitorAxisScore[], summary: ScmRiskSummary) {
+  const rows = (competitors.length ? competitors : defaultResearchProfile.competitors).filter((competitor) => competitor.name.trim()).slice(0, 5);
+  return rows.map((competitor) => {
+    const score = competitorScores.find((item) => item.competitor === competitor.name)?.scores.scm || 7;
+    const edge = score - summary.recommendedScore;
+    return {
+      name: competitor.name,
+      scmScore: score,
+      position: competitor.position || "SCM 비교 대상",
+      comparison: edge > 1 ? "경쟁사 우위" : edge < -1 ? "당사 우위 가능" : "유사 수준",
+      reason: competitor.note || "납기, 대체 공급처, 양산 안정성 관점에서 비교가 필요합니다.",
+    };
+  });
+}
+
+function getScmNodePoint(type: ScmNodeType, index: number) {
+  const positions: Record<ScmNodeType, Array<{ x: number; y: number }>> = {
+    원재료: [{ x: 110, y: 70 }, { x: 110, y: 125 }],
+    부품: [{ x: 110, y: 190 }, { x: 110, y: 245 }],
+    외주공정: [{ x: 300, y: 78 }, { x: 300, y: 130 }],
+    물류: [{ x: 300, y: 260 }, { x: 300, y: 310 }],
+    생산거점: [{ x: 500, y: 115 }, { x: 500, y: 245 }],
+    "주요 고객": [{ x: 650, y: 160 }, { x: 650, y: 225 }],
+  };
+  const bucket = positions[type];
+  return bucket[index % bucket.length];
+}
+
+function getScmLineColor(score: number) {
+  if (score >= 70) return "#dc2626";
+  if (score >= 40) return "#d97706";
+  return "#2563eb";
+}
+
+function getScmNodeRiskClass(score: number) {
+  if (score >= 70) return "risk-high";
+  if (score >= 40) return "risk-mid";
+  return "risk-low";
+}
+
+function buildScmFlow(nodes: Supplier[]) {
+  const companyNode: Node<ScmFlowData> = {
+    id: "company",
+    type: "scmRisk",
+    position: { x: 350, y: 170 },
+    data: { label: "우리 회사", nodeType: "회사", riskScore: 0, badges: [] },
+    className: "scm-flow-node company-flow-node",
+    draggable: false,
+  };
+  const flowNodes: Node<ScmFlowData>[] = [companyNode];
+  const flowEdges: Edge[] = [];
+
+  nodes.forEach((node, index) => {
+    const point = getScmNodePoint(node.type, index);
+    const score = getScmRiskScore(node);
+    const label = node.name.trim() || `${node.type} ${index + 1}`;
+    const badges = getScmRiskBadges(node);
+    const nodeId = `scm-${index}`;
+    const isCustomer = node.type === "주요 고객";
+    const isInternal = node.type === "생산거점";
+    flowNodes.push({
+      id: nodeId,
+      type: "scmRisk",
+      position: { x: point.x - 54, y: point.y - 34 },
+      data: { label, nodeType: node.type, riskScore: score, badges },
+      className: `scm-flow-node ${getScmNodeRiskClass(score)}`,
+      draggable: false,
+    });
+    flowEdges.push({
+      id: `edge-${index}`,
+      source: isCustomer ? "company" : nodeId,
+      target: isCustomer || isInternal ? nodeId : "company",
+      type: "smoothstep",
+      animated: score >= 70,
+      markerEnd: { type: MarkerType.ArrowClosed, color: getScmLineColor(score) },
+      style: { stroke: getScmLineColor(score), strokeWidth: Math.max(2, Math.min(9, Math.max(12, node.dependence) / 10)) },
+    });
+  });
+
+  return { nodes: flowNodes, edges: flowEdges };
+}
+
+const analysisPurposes = [
+  "성장전략 수립",
+  "시장점유 방어",
+  "신사업 진입",
+  "경쟁사 대응",
+  "가격전략",
+  "채널전략",
+  "원가경쟁력 개선",
+  "SCM 안정화",
+  "조직역량 진단",
+  "투자/M&A 검토",
+  "수익성 개선",
+  "위기대응 전략",
+];
+
+function getExecutiveRole(role: ExecutiveRole) {
+  return executiveRoles.find((item) => item.role === role) || executiveRoles[0];
+}
+
+function getRoleLanguage(role: ExecutiveRole) {
+  if (role === "CEO") return { question: "어디에 베팅할 것인가", verb: "자원 배분을 결정", reportTone: "투자와 철수의 선택지를 명확히 합니다." };
+  if (role === "CSO" || role === "전략기획팀장") return { question: "어떤 전략 옵션이 타당한가", verb: "전략 옵션을 검증", reportTone: "시장 진입, 포트폴리오, 제휴 시나리오를 비교합니다." };
+  if (role === "CMO" || role === "마케팅팀장") return { question: "어떤 고객·채널에서 이길 것인가", verb: "고객·채널 우선순위를 확정", reportTone: "타깃 고객, 포지셔닝, 가격, 채널 실행안을 구체화합니다." };
+  if (role === "경영지원팀장") return { question: "무엇을 실행 가능하게 만들 것인가", verb: "조직·예산·KPI 체계를 설계", reportTone: "전략을 실행 가능한 책임, 예산, KPI로 전환합니다." };
+  if (role === "CFO") return { question: "어떤 선택이 수익성과 현금흐름을 지키는가", verb: "재무 기준을 확정", reportTone: "수익성, 투자여력, 비용구조 기준으로 판단합니다." };
+  return { question: "어떤 운영 격차를 먼저 줄일 것인가", verb: "운영 실행 우선순위를 확정", reportTone: "공급망, 생산성, 납기, 품질 격차를 실행 과제로 전환합니다." };
+}
+
 const axes = [
   { key: "strategy", label: "전략", hint: "성장 방향, 포지셔닝, 의사결정 속도", icon: Target },
   { key: "profit", label: "수익구조", hint: "마진, 반복매출, 가격 방어력", icon: TrendingUp },
@@ -51,10 +317,269 @@ const axes = [
   { key: "finance", label: "재무건전성", hint: "현금흐름, 부채, 투자 여력", icon: ShieldCheck },
 ] as const;
 
+
+const swotCategories: Array<{ key: SwotCategory; label: string; tone: string; placeholder: string }> = [
+  { key: "strengths", label: "강점", tone: "strength", placeholder: "당사가 이미 방어 가능한 역량" },
+  { key: "weaknesses", label: "약점", tone: "weakness", placeholder: "경쟁사 대비 부족한 역량" },
+  { key: "opportunities", label: "기회", tone: "opportunity", placeholder: "시장 성장, 정책, 프로젝트 수요" },
+  { key: "threats", label: "위협", tone: "threat", placeholder: "가격 경쟁, 대형사 진입, 대체재" },
+];
+
+const axisOwnerMap: Record<AxisKey, DepartmentName> = {
+  strategy: "전략기획",
+  profit: "재무",
+  scm: "운영/SCM",
+  market: "마케팅",
+  operation: "경영지원",
+  finance: "재무",
+};
+
+const axisSwotTemplates: Record<AxisKey, { weakness: string; opportunity: string; question: string }> = {
+  strategy: { weakness: "전략 포트폴리오와 제휴 옵션의 구체성이 경쟁사 대비 부족", opportunity: "시장 재편기에 포트폴리오·제휴 전략을 재정렬할 기회", question: "Top5 경쟁사 대비 어떤 전략 옵션이 가장 현실적인가요?" },
+  profit: { weakness: "가격 경쟁 시 마진 방어 구조가 취약", opportunity: "고부가 제품·서비스 믹스로 수익성을 개선할 기회", question: "가격 경쟁이 발생하면 가장 먼저 훼손될 마진 구조는 무엇인가요?" },
+  scm: { weakness: "공급처 의존·납기 리스크가 경쟁사 대비 큼", opportunity: "대체 공급처와 납기 안정성으로 프로젝트 수주 신뢰를 높일 기회", question: "대형 프로젝트 수주에서 부족한 인증·레퍼런스·납기 대응은 무엇인가요?" },
+  market: { weakness: "타깃 고객·채널 커버리지가 경쟁사 대비 제한적", opportunity: "고객군·채널별 포지셔닝을 재정의해 침투율을 높일 기회", question: "Top5 경쟁사 대비 당사가 이길 수 있는 고객군과 채널은 어디인가요?" },
+  operation: { weakness: "운영 프로세스와 디지털 활용 수준이 경쟁사 대비 낮음", opportunity: "자동화·표준화로 품질, 납기, 생산성을 동시에 개선할 기회", question: "반복 지연이나 품질 이슈를 만드는 운영 병목은 무엇인가요?" },
+  finance: { weakness: "투자 우선순위와 회수 기준이 명확하지 않음", opportunity: "재무 안정성을 활용해 선택적 투자와 리스크 대응력을 높일 기회", question: "지금 투자해도 되는 영역과 중단해야 할 조건은 무엇인가요?" },
+};
+
+const axisEvaluationDefinitions: Record<AxisKey, AxisSubMetric[]> = {
+  strategy: [
+    { label: "전략 명확성", ownSignal: "포트폴리오·우선순위 문서화", peerSignal: "경쟁사 사업부문·투자 방향" },
+    { label: "차별화 포지션", ownSignal: "고객이 선택하는 이유", peerSignal: "경쟁사 제품/채널 포지션" },
+    { label: "의사결정 속도", ownSignal: "투자·수주 판단 리드타임", peerSignal: "경쟁사 확장·제휴 속도" },
+  ],
+  profit: [
+    { label: "가격 방어력", ownSignal: "단가 인하 대응력", peerSignal: "경쟁사 가격·효율 압박" },
+    { label: "마진 구조", ownSignal: "원가율·제품믹스", peerSignal: "동종업계 수익성" },
+    { label: "반복 매출", ownSignal: "장기계약·A/S·소모품", peerSignal: "경쟁사 고객 유지 구조" },
+  ],
+  scm: [
+    { label: "공급처 다변화", ownSignal: "핵심 공급처 의존도", peerSignal: "경쟁사 조달 안정성" },
+    { label: "납기 안정성", ownSignal: "납기 준수율·리드타임", peerSignal: "경쟁사 프로젝트 대응력" },
+    { label: "품질·수율", ownSignal: "불량률·수율·클레임", peerSignal: "양산 경험·인증" },
+  ],
+  market: [
+    { label: "고객군 적합성", ownSignal: "타깃 고객·레퍼런스", peerSignal: "경쟁사 고객 포트폴리오" },
+    { label: "채널 접근성", ownSignal: "직판·대리점·세트업체 접점", peerSignal: "경쟁사 납품 이력" },
+    { label: "브랜드·신뢰", ownSignal: "인증·레퍼런스·평판", peerSignal: "시장 반복 언급도" },
+  ],
+  operation: [
+    { label: "생산성", ownSignal: "자동화·표준시간", peerSignal: "경쟁사 양산 규모" },
+    { label: "프로세스 성숙도", ownSignal: "계획·품질·원가 관리 체계", peerSignal: "경쟁사 운영 안정성" },
+    { label: "인력·조직", ownSignal: "핵심인력·R&R", peerSignal: "경쟁사 조직 실행력" },
+  ],
+  finance: [
+    { label: "재무 안정성", ownSignal: "부채·현금흐름", peerSignal: "경쟁사 투자 여력" },
+    { label: "투자 여력", ownSignal: "CAPEX·R&D 가능성", peerSignal: "경쟁사 설비/기술 투자" },
+    { label: "비용 구조", ownSignal: "고정비·변동비 민감도", peerSignal: "동종업계 비용 구조" },
+  ],
+};
+
+const baseAxisWeights: Record<AxisKey, number> = { strategy: 1, profit: 1, scm: 1, market: 1, operation: 1, finance: 1 };
+
+function clampScore(value: number) {
+  return Math.min(10, Math.max(1, Math.round(value)));
+}
+
+function getPurposeAxisWeights(purpose: string, role: ExecutiveRole): Record<AxisKey, number> {
+  const text = purpose.toLowerCase();
+  const weights = { ...baseAxisWeights };
+  for (const axis of getExecutiveRole(role).primaryAxes) weights[axis] += 0.35;
+  if (text.includes("시장") || text.includes("채널") || text.includes("점유")) {
+    weights.market += 0.9;
+    weights.strategy += 0.45;
+  }
+  if (text.includes("가격") || text.includes("원가") || text.includes("수익")) {
+    weights.profit += 0.9;
+    weights.operation += 0.35;
+    weights.finance += 0.25;
+  }
+  if (text.includes("scm") || text.includes("공급") || text.includes("납기")) {
+    weights.scm += 1;
+    weights.operation += 0.55;
+  }
+  if (text.includes("신사업") || text.includes("성장") || text.includes("m&a") || text.includes("투자")) {
+    weights.strategy += 0.75;
+    weights.finance += 0.45;
+    weights.market += 0.35;
+  }
+  if (text.includes("조직") || text.includes("위기")) {
+    weights.operation += 0.6;
+    weights.finance += 0.3;
+  }
+  return weights;
+}
+
+function weightedScore(scores: Record<AxisKey, Score>, purpose: string, role: ExecutiveRole) {
+  const weights = getPurposeAxisWeights(purpose, role);
+  const totalWeight = axes.reduce((sum, axis) => sum + weights[axis.key], 0);
+  const weighted = axes.reduce((sum, axis) => sum + scores[axis.key].own * weights[axis.key], 0) / totalWeight;
+  return Math.round(weighted * 10);
+}
+
+function getScoreSource(score: Score): NonNullable<Score["source"]> {
+  return score.source || (score.note ? "사용자 입력" : "자동 추정");
+}
+
+function getScoreConfidence(score: Score, hasLiveData: boolean) {
+  if (score.confidence) return score.confidence;
+  let confidence = 45;
+  if (score.note.trim()) confidence += 15;
+  if (hasLiveData) confidence += 20;
+  if (score.reasons?.length) confidence += 10;
+  return Math.min(95, confidence);
+}
+
+function buildCompetitorAxisScores(profile: ResearchProfile, competitors: Competitor[], companyName: string, industry: string): CompetitorAxisScore[] {
+  return competitors.filter((competitor) => competitor.name.trim()).slice(0, 5).map((competitor) => {
+    const fit = getBusinessFitDetails(competitor, companyName, industry, profile);
+    const directBoost = competitor.directness === "direct" ? 1 : competitor.directness === "adjacent" ? 0 : -1;
+    const signalBoost = Math.min(1, Math.floor(fit.score / 6));
+    const scores = Object.fromEntries(axes.map((axis) => {
+      const axisSignal = includesBusinessTerm(`${competitor.position} ${competitor.note} ${(competitor.tags || []).join(" ")}`, axis.label) ? 1 : 0;
+      return [axis.key, clampScore(profile.peerScores[axis.key] + directBoost + signalBoost + axisSignal)];
+    })) as Record<AxisKey, number>;
+    return { competitor: competitor.name, scores, reason: fit.summary, fitScore: fit.score };
+  });
+}
+
+function buildAxisDetails(state: AppState, profile: ResearchProfile, competitorAxisScores: CompetitorAxisScore[], liveCompanies: LiveCompany[]): AxisDetail[] {
+  const averagePeer = (axis: AxisKey) => competitorAxisScores.length
+    ? Math.round(avg(competitorAxisScores.map((competitor) => competitor.scores[axis])))
+    : state.scores[axis].peer;
+
+  return axes.map((axis) => {
+    const score = state.scores[axis.key];
+    const peerAverage = averagePeer(axis.key);
+    const gap = peerAverage - score.own;
+    const source = getScoreSource(score);
+    const confidence = getScoreConfidence(score, Boolean(liveCompanies.length));
+    const reasons = score.reasons?.length ? score.reasons : [
+      `${profile.label} 업종 프로파일 기준 경쟁사 평균 ${peerAverage}점`,
+      gap > 0 ? `경쟁사 대비 ${gap}점 열위` : gap < 0 ? `경쟁사 대비 ${Math.abs(gap)}점 우위` : "경쟁사 평균과 유사",
+      score.note || "내부 정량지표 입력 시 보정 필요",
+    ];
+    const subMetrics = axisEvaluationDefinitions[axis.key].map((metric, index) => {
+      const adjustment = index === 0 ? 0 : index === 1 ? Math.sign(score.own - peerAverage) : -Math.sign(gap);
+      return {
+        ...metric,
+        own: clampScore(score.own + adjustment),
+        peer: clampScore(peerAverage + (index === 2 && competitorAxisScores.length >= 4 ? 1 : 0)),
+        reason: `${metric.ownSignal} / ${metric.peerSignal}`,
+      };
+    });
+    return { axis: axis.key, subMetrics, source, confidence, reasons };
+  });
+}
+
+function createSwotItem(category: SwotCategory, content = "", evidence = "", impact = 3, certainty = 3, competitor = "", axis: AxisKey = "strategy"): SwotItem {
+  return {
+    id: `${category}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    category,
+    content,
+    evidence,
+    impact,
+    certainty,
+    competitor,
+    axis,
+  };
+}
+
+function createEmptySwot(): Record<SwotCategory, SwotItem[]> {
+  return { strengths: [createSwotItem("strengths")], weaknesses: [createSwotItem("weaknesses")], opportunities: [createSwotItem("opportunities")], threats: [createSwotItem("threats")] };
+}
+
+function migrateSwotValue(value: unknown): Record<SwotCategory, SwotItem[]> {
+  const empty = createEmptySwot();
+  if (!value || typeof value !== "object") return empty;
+  const raw = value as Partial<Record<SwotCategory, unknown>>;
+  return Object.fromEntries(swotCategories.map(({ key }) => {
+    const bucket = raw[key];
+    if (Array.isArray(bucket)) {
+      const items = bucket.map((item) => ({ ...createSwotItem(key), ...(item as Partial<SwotItem>), category: key })).filter((item) => item.content || item.evidence || item.competitor);
+      return [key, items.length ? items : [createSwotItem(key)]];
+    }
+    if (typeof bucket === "string") {
+      const items = splitLines(bucket).map((line) => createSwotItem(key, line));
+      return [key, items.length ? items : [createSwotItem(key)]];
+    }
+    return [key, empty[key]];
+  })) as Record<SwotCategory, SwotItem[]>;
+}
+
+function getSwotItemText(items: SwotItem[]) {
+  return items.map((item) => item.content.trim()).filter(Boolean);
+}
+
+function firstSwotItem(items: SwotItem[], fallbackLabel: string) {
+  return getSwotItemText(items)[0] || fallbackLabel;
+}
+
+function getCoreSwotItems(swot: Record<SwotCategory, SwotItem[]>) {
+  const rank = (items: SwotItem[]) => [...items]
+    .filter((item) => item.content.trim())
+    .sort((a, b) => (b.impact * b.certainty) - (a.impact * a.certainty));
+  return {
+    strengths: rank(swot.strengths),
+    weaknesses: rank(swot.weaknesses),
+    opportunities: rank(swot.opportunities),
+    threats: rank(swot.threats),
+  };
+}
+
+function buildSwotDrafts(state: AppState, profile: ResearchProfile) {
+  const gapAxes = axes
+    .map((axis) => ({ axis, gap: state.scores[axis.key].peer - state.scores[axis.key].own }))
+    .sort((a, b) => b.gap - a.gap);
+  const strongestAxis = axes
+    .map((axis) => ({ axis, edge: state.scores[axis.key].own - state.scores[axis.key].peer }))
+    .sort((a, b) => b.edge - a.edge)[0]?.axis || axes[0];
+  const biggestGapAxis = gapAxes[0]?.axis || axes[2];
+  const competitor = state.competitors.find((item) => item.name.trim()) || profile.competitors[0];
+  const signals = extractBusinessSignals(`${state.companyName} ${state.industry} ${profile.label} ${profile.tags?.join(" ") || ""} ${competitor?.note || ""}`, profile).slice(0, 6).join(" · ");
+  const matchedCompetitor = competitor?.name || "Top5 경쟁사";
+
+  return {
+    strengths: [createSwotItem("strengths", `${strongestAxis.label} 축에서 당사가 방어 가능한 기존 역량 보유`, `${matchedCompetitor} 대비 6축 점수와 내부 근거 확인 필요${signals ? ` · 신호: ${signals}` : ""}`, 4, 3, matchedCompetitor, strongestAxis.key)],
+    weaknesses: [createSwotItem("weaknesses", axisSwotTemplates[biggestGapAxis.key].weakness, `${biggestGapAxis.label} 격차 ${Math.max(0, state.scores[biggestGapAxis.key].peer - state.scores[biggestGapAxis.key].own)}점 · 경쟁사 비교표 근거`, 5, 4, matchedCompetitor, biggestGapAxis.key)],
+    opportunities: [createSwotItem("opportunities", axisSwotTemplates[biggestGapAxis.key].opportunity, `KOSIS ${state.industry || profile.label} 업종 추세와 프로젝트 수요 확인 필요`, 4, 3, matchedCompetitor, biggestGapAxis.key)],
+    threats: [createSwotItem("threats", `${matchedCompetitor} 등 직접 경쟁사의 가격·효율·레퍼런스 압박`, `경쟁사 선정사유와 사업부문 적합도 신호 기반`, 5, 3, matchedCompetitor, biggestGapAxis.key)],
+  } satisfies Record<SwotCategory, SwotItem[]>;
+}
+
+function buildSwotCoachQuestions(state: AppState, profile: ResearchProfile, biggestGap: { label: string; gap: number }) {
+  const topGapAxis = axes.map((axis) => ({ axis, gap: state.scores[axis.key].peer - state.scores[axis.key].own })).sort((a, b) => b.gap - a.gap)[0]?.axis || axes[0];
+  const directCompetitors = state.competitors.filter((item) => item.directness === "direct" || item.name).slice(0, 3).map((item) => item.name).filter(Boolean).join("·") || "Top5 경쟁사";
+  const signals = extractBusinessSignals(`${state.industry} ${profile.label} ${profile.tags?.join(" ") || ""}`, profile).slice(0, 4).join("·");
+  return [
+    `Top5 경쟁사(${directCompetitors}) 대비 당사가 이미 가진 고객·납기·기술 우위는 무엇인가요?`,
+    axisSwotTemplates[topGapAxis.key].question,
+    `${state.industry || profile.label}에서 ${signals || "핵심 사업 신호"} 기준으로 대체재나 해외계 업체가 위협이 되는 지점은 어디인가요?`,
+    `${biggestGap.label} 격차를 90일 안에 줄이려면 어떤 근거 데이터가 먼저 필요할까요?`,
+  ];
+}
+
+function buildTowsStrategies(state: AppState): TowsStrategy[] {
+  const core = getCoreSwotItems(state.swot);
+  const strength = core.strengths[0] || createSwotItem("strengths", "핵심 강점", "", 3, 3, "", "strategy");
+  const weakness = core.weaknesses[0] || createSwotItem("weaknesses", "핵심 약점", "", 3, 3, "", "operation");
+  const opportunity = core.opportunities[0] || createSwotItem("opportunities", "핵심 기회", "", 3, 3, "", "market");
+  const threat = core.threats[0] || createSwotItem("threats", "핵심 위협", "", 3, 3, "", "profit");
+  const priority = (impact: number, certainty: number): "상" | "중" | "하" => impact >= 4 && certainty >= 4 ? "상" : impact >= 3 && certainty >= 3 ? "중" : "하";
+  return [
+    { label: "SO", name: "강점 기반 성장 옵션", logic: `${strength.content}을 활용해 ${opportunity.content}를 선점합니다.`, action90: `${axisOwnerMap[opportunity.axis]} 주도로 고객·채널·제품 적용 시나리오 3개를 검증`, kpi: "검증 시나리오 3개, 파일럿 고객 1곳", risk: "기회 규모가 과대 추정될 수 있음", priority: priority(strength.impact, opportunity.certainty), owner: axisOwnerMap[opportunity.axis] },
+    { label: "ST", name: "방어 가능한 경쟁우위 강화", logic: `${strength.content}으로 ${threat.content}의 영향을 낮춥니다.`, action90: `${axisOwnerMap[threat.axis]} 주도로 가격·효율·레퍼런스 방어 기준 확정`, kpi: "방어 기준 5개, 리스크 대응안 1건", risk: "경쟁사의 가격 인하 속도가 빠를 수 있음", priority: priority(threat.impact, strength.certainty), owner: axisOwnerMap[threat.axis] },
+    { label: "WO", name: "약점 보완형 기회 포착", logic: `${opportunity.content}를 활용해 ${weakness.content}를 개선합니다.`, action90: `${axisOwnerMap[weakness.axis]} 주도로 약점 개선 파일럿과 외부 파트너 후보를 검토`, kpi: "개선 파일럿 1건, 파트너 후보 3곳", risk: "내부 실행 리소스가 부족할 수 있음", priority: priority(weakness.impact, opportunity.certainty), owner: axisOwnerMap[weakness.axis] },
+    { label: "WT", name: "리스크 차단 과제", logic: `${weakness.content}과 ${threat.content}이 만나는 영역을 선제 차단합니다.`, action90: `${axisOwnerMap[weakness.axis]} 주도로 중단 조건, 모니터링 지표, 책임자를 지정`, kpi: "리스크 지표 3개, 대응 책임자 지정", risk: "위험이 현실화되면 비용이 먼저 증가할 수 있음", priority: priority(Math.max(weakness.impact, threat.impact), Math.max(weakness.certainty, threat.certainty)), owner: axisOwnerMap[weakness.axis] },
+  ];
+}
+
 const defaultState: AppState = {
   companyName: "",
   industry: "",
-  purpose: "시장점유 방어",
+  role: "CEO",
+  purpose: "성장전략 수립",
   period: "최근 3년",
   competitors: [{ name: "", position: "", note: "" }],
   scores: {
@@ -65,8 +590,8 @@ const defaultState: AppState = {
     operation: { own: 5, peer: 6, note: "" },
     finance: { own: 5, peer: 6, note: "" },
   },
-  swot: { strengths: "", weaknesses: "", opportunities: "", threats: "" },
-  suppliers: [{ name: "", dependence: 30, leadTime: 14, risk: "보통" }],
+  swot: createEmptySwot(),
+  suppliers: [createScmNode()],
   actions: [{ task: "", owner: "", kpi: "", due: "" }],
   liveCompetitors: [],
   competitorCandidates: [],
@@ -76,6 +601,7 @@ const defaultState: AppState = {
 const sampleState: AppState = {
   companyName: "한빛정밀",
   industry: "자동차 부품 제조",
+  role: "COO",
   purpose: "SCM 안정화",
   period: "최근 3년",
   competitors: [
@@ -92,14 +618,30 @@ const sampleState: AppState = {
     finance: { own: 8, peer: 6, note: "차입 부담 낮고 설비 투자 여력 있음" },
   },
   swot: {
-    strengths: "장기 고객사와 품질 신뢰\n낮은 부채비율\n핵심 가공 기술 내재화",
-    weaknesses: "핵심 소재 공급처 의존도 높음\n생산계획 수작업 비중 높음\n후계자 중심 의사결정 체계 미완성",
-    opportunities: "전장 부품 수요 확대\n정부 스마트공장 지원\n경쟁사 납기 지연 이슈",
-    threats: "완성차 단가 인하 압박\n원자재 가격 변동\n해외 저가 업체 진입",
+    strengths: [
+      createSwotItem("strengths", "장기 고객사와 품질 신뢰", "반복 거래와 품질 클레임 이력", 5, 4, "세진테크", "market"),
+      createSwotItem("strengths", "낮은 부채비율", "최근 3년 재무 안정성", 4, 4, "", "finance"),
+      createSwotItem("strengths", "핵심 가공 기술 내재화", "주요 공정 사내 보유", 4, 3, "대성모빌리티", "operation"),
+    ],
+    weaknesses: [
+      createSwotItem("weaknesses", "핵심 소재 공급처 의존도 높음", "1개사 의존도 68%", 5, 5, "대성모빌리티", "scm"),
+      createSwotItem("weaknesses", "생산계획 수작업 비중 높음", "주간 계획 조정 시간이 길어짐", 4, 4, "우진파트너스", "operation"),
+      createSwotItem("weaknesses", "의사결정 체계 미완성", "투자·수주 판단 기준 문서화 부족", 3, 3, "", "strategy"),
+    ],
+    opportunities: [
+      createSwotItem("opportunities", "전장 부품 수요 확대", "완성차 전동화 전환", 5, 4, "세진테크", "market"),
+      createSwotItem("opportunities", "정부 스마트공장 지원", "자동화 투자 보조 가능성", 4, 3, "", "operation"),
+      createSwotItem("opportunities", "경쟁사 납기 지연 이슈", "고객 전환 가능성", 4, 3, "우진파트너스", "scm"),
+    ],
+    threats: [
+      createSwotItem("threats", "완성차 단가 인하 압박", "고객사 원가 절감 요구", 5, 4, "대성모빌리티", "profit"),
+      createSwotItem("threats", "원자재 가격 변동", "핵심 소재 가격 민감도", 4, 4, "", "scm"),
+      createSwotItem("threats", "해외 저가 업체 진입", "저가 대량 생산 경쟁", 4, 3, "대성모빌리티", "market"),
+    ],
   },
   suppliers: [
-    { name: "동원소재", dependence: 68, leadTime: 21, risk: "높음" },
-    { name: "한서정공", dependence: 22, leadTime: 12, risk: "보통" },
+    createScmNode({ name: "동원소재", type: "원재료", dependence: 68, leadTime: 21, alternatives: 0, qualityIssues: 1, certificationRequired: true, regionRisk: "보통" }),
+    createScmNode({ name: "한서정공", type: "부품", dependence: 22, leadTime: 12, alternatives: 2, qualityIssues: 0, certificationRequired: false, regionRisk: "낮음" }),
   ],
   actions: [
     { task: "핵심 소재 대체 공급처 2곳 인증", owner: "구매팀장", kpi: "의존도 45% 이하", due: "2026-09" },
@@ -161,6 +703,36 @@ const researchProfiles: ResearchProfile[] = [
       { name: "신성이엔지", position: "태양광 인버터·설치형 신재생 솔루션", tags: ["태양광", "인버터", "설치형", "사업용", "신재생", "프로젝트", "직접경쟁"], directness: "direct", note: "국내 태양광 인버터 시장 참여 기업으로 설치형·사업용 수요에서 겹치며 가격, 효율, 레퍼런스, 공공조달 대응력 비교가 필요" },
     ],
     peerScores: { strategy: 8, profit: 7, scm: 7, market: 8, operation: 8, finance: 7 },
+  },
+  {
+    label: "스마트폰 쉴드캔·메탈케이스·광학부품",
+    keywords: ["성우전자", "성우전자 쉴드캔", "스마트폰 렌즈 쉴드", "렌즈 쉴드", "렌즈쉴드", "쉴드캔", "shield can", "metal case", "메탈 케이스", "메탈케이스", "deco", "금속 외장", "스마트폰 금속부품", "휴대폰 금속부품", "vcm", "셔터", "광학기기 부품", "카메라 렌즈 부품", "스마트폰 내장 부품"],
+    requiredKeywordGroups: [["쉴드캔", "shield can", "렌즈쉴드", "렌즈 쉴드", "metal case", "메탈케이스", "메탈 케이스", "deco"], ["스마트폰", "휴대폰", "삼성전자", "세트업체", "카메라", "광학", "vcm", "셔터"]],
+    negativeKeywords: ["터치스크린", "touch screen", "pba", "pcb", "태양광", "전자담배", "배터리팩", "자동차부품"],
+    tags: ["스마트폰", "쉴드캔", "Shield Can", "메탈케이스", "렌즈쉴드", "VCM", "셔터", "광학부품", "카메라모듈", "프레스", "정밀가공", "금속부품", "삼성전자", "세트업체"],
+    competitors: [
+      { name: "에스코넥", position: "스마트폰 쉴드캔·금속부품", tags: ["쉴드캔", "스마트폰", "삼성전자", "금속부품", "프레스", "직접경쟁"], directness: "direct", note: "성우전자 쉴드캔의 삼성전자 물량을 공급하는 경쟁사로 직접 언급되며, 전자파 차폐용 쉴드캔과 금속 정밀부품에서 제품·고객 중복성이 가장 높습니다" },
+      { name: "원진", position: "쉴드캔 대체 공급처·금속 정밀부품", tags: ["쉴드캔", "대체공급", "스마트폰", "금속부품", "직접경쟁"], directness: "direct", note: "에스코넥과 함께 성우전자의 쉴드캔 대체 공급처로 언급되어 삼성전자 1차 협력망 내 직접 경쟁 가능성이 큽니다" },
+      { name: "파트론", position: "스마트폰 부품·메탈/광학 모듈", tags: ["스마트폰", "카메라모듈", "광학부품", "메탈", "삼성전자", "확장경쟁"], directness: "adjacent", note: "스마트폰 부품 대형 공급사로 메탈 케이스, 광학부품, 모듈 영역에서 성우전자와 고객군이 겹쳐 확장 경쟁사로 비교할 수 있습니다" },
+      { name: "해성옵틱스", position: "카메라 모듈·광학 부품", tags: ["카메라모듈", "광학부품", "렌즈", "VCM", "스마트폰", "확장경쟁"], directness: "adjacent", note: "카메라 모듈과 광학 부품 기반 기업으로 성우전자의 VCM, 셔터 등 영상·광학기기 부문과 연결됩니다" },
+      { name: "엠씨넥스", position: "스마트폰 카메라 모듈·광학부품", tags: ["카메라모듈", "광학부품", "렌즈", "스마트폰", "삼성전자", "확장경쟁"], directness: "adjacent", note: "스마트폰 카메라 모듈과 광학 부품 역량이 강해 렌즈·카메라 주변 부품군에서 경쟁 가능성이 높습니다" },
+    ],
+    peerScores: { strategy: 7, profit: 7, scm: 8, market: 8, operation: 8, finance: 7 },
+  },
+  {
+    label: "터치스크린·터치모듈",
+    keywords: ["에스제이아이 터치스크린", "sji touch", "터치스크린", "touch screen", "touch screen panel", "tsp", "터치패널", "터치 패널", "터치모듈", "터치 모듈", "정전용량", "저항막", "gff", "ito", "oca", "강화유리", "산업용 hmi", "hmi", "특수용 터치"],
+    requiredKeywordGroups: [["터치스크린", "touch screen", "touch screen panel", "tsp", "터치패널", "터치모듈"], ["gff", "ito", "oca", "강화유리", "정전용량", "저항막", "hmi", "산업용", "특수용", "양산"]],
+    negativeKeywords: ["pba", "pcb assembly", "인쇄회로기판", "배터리팩", "태양광", "전자담배", "반도체 장비"],
+    tags: ["터치스크린", "터치패널", "터치모듈", "TSP", "GFF", "ITO", "OCA", "강화유리", "산업용", "HMI", "세트업체", "양산"],
+    competitors: [
+      { name: "에스맥", position: "터치스크린 패널·모듈", tags: ["터치스크린", "터치패널", "TSP", "삼성전자", "양산", "직접경쟁"], directness: "direct", note: "국내 터치스크린 관련 대표 업체로 반복 언급되며 삼성전자 납품 계열 경쟁군에 속해, SJI의 터치스크린 패널·모듈 사업과 제품 중복성이 높습니다" },
+      { name: "시노펙스", position: "ITO 필름·터치스크린", tags: ["터치스크린", "ITO", "필름", "터치패널", "직접경쟁"], directness: "direct", note: "ITO 필름과 터치스크린 사업으로 알려진 국내 터치패널 경쟁군의 핵심 플레이어로, 소재·패널 공정과 고객 대응력 비교가 가능합니다" },
+      { name: "미성포리테크", position: "터치스크린 양산·납품", tags: ["터치스크린", "터치패널", "양산", "납품", "직접경쟁"], directness: "direct", note: "터치스크린 양산 및 납품 사례가 언급되어 SJI와 같은 제조형 경쟁을 하며 단가, 수율, 납기 안정성 비교에 적합합니다" },
+      { name: "디지텍시스템즈", position: "강화유리·OCA·터치패널", tags: ["터치패널", "강화유리", "OCA", "핵심공정", "직접경쟁"], directness: "direct", note: "강화유리·OCA·터치패널 축으로 경쟁하며 터치스크린 핵심 공정 측면에서 SJI의 제품 포트폴리오와 겹칩니다" },
+      { name: "이엘케이", position: "세트업체 대응형 터치패널", tags: ["터치패널", "LG전자", "세트업체", "양산", "직접경쟁"], directness: "direct", note: "LG전자 납품 업체로 언급되며 세트업체 대응형 터치패널 경쟁사로 볼 수 있어 고객 인증, 납기, 양산 안정성 비교에 적합합니다" },
+    ],
+    peerScores: { strategy: 7, profit: 6, scm: 8, market: 7, operation: 8, finance: 6 },
   },
   {
     label: "PBA·PCB 어셈블리",
@@ -341,11 +913,11 @@ function getCompetitorBusinessText(competitor: Competitor) {
 }
 
 const businessSignalLexicon = [
-  { group: "capacity", terms: ["대용량", "소용량", "중대형", "설치형", "사업용", "공공", "프로젝트", "양산", "대량", "프리미엄", "저가", "고효율"] },
-  { group: "customer", terms: ["공공", "발전사업", "완성차", "스마트폰", "의료기기", "가전", "B2B", "B2C", "ODM", "OEM", "조달", "상업용", "산업용"] },
-  { group: "value", terms: ["가격", "효율", "품질", "납기", "A/S", "인증", "레퍼런스", "수율", "원가", "보증", "채널", "브랜드"] },
-  { group: "technology", terms: ["인버터", "PCS", "BMS", "PCB", "PBA", "FPCB", "모듈", "배터리팩", "반도체", "전력변환", "ESS", "히팅", "카트리지", "무화"] },
-  { group: "market", terms: ["국내", "해외", "글로벌", "신재생", "전장", "모빌리티", "에너지", "전자부품", "프로젝트형", "설치", "대체재"] },
+  { group: "capacity", terms: ["대용량", "소용량", "중대형", "설치형", "사업용", "공공", "프로젝트", "양산", "대량", "프리미엄", "저가", "고효율", "맞춤형", "특수용", "산업용", "1차협력", "대체공급", "세트업체"] },
+  { group: "customer", terms: ["공공", "발전사업", "완성차", "스마트폰", "의료기기", "가전", "B2B", "B2C", "ODM", "OEM", "조달", "상업용", "산업용", "삼성전자", "LG전자", "세트업체", "HMI"] },
+  { group: "value", terms: ["가격", "효율", "품질", "납기", "A/S", "인증", "레퍼런스", "수율", "원가", "보증", "채널", "브랜드", "단가", "품질신뢰", "고객대응", "대응속도"] },
+  { group: "technology", terms: ["인버터", "PCS", "BMS", "PCB", "PBA", "FPCB", "모듈", "배터리팩", "반도체", "전력변환", "ESS", "히팅", "카트리지", "무화", "터치스크린", "터치패널", "터치모듈", "Touch Screen Panel", "TSP", "GFF", "ITO", "OCA", "강화유리", "정전용량", "저항막", "쉴드캔", "Shield Can", "렌즈쉴드", "렌즈 쉴드", "메탈케이스", "Metal Case", "Deco", "VCM", "셔터", "광학부품", "카메라모듈", "렌즈", "프레스", "정밀가공", "금속부품"] },
+  { group: "market", terms: ["국내", "해외", "글로벌", "신재생", "전장", "모빌리티", "에너지", "전자부품", "프로젝트형", "설치", "대체재", "스마트폰부품", "휴대폰부품", "삼성전자", "카메라", "광학"] },
 ];
 
 function uniqueTerms(terms: string[]) {
@@ -547,28 +1119,37 @@ function rankCompetitorsByBusinessFit(
   return strongMatches.length >= Math.min(3, scored.length) ? strongMatches : scored;
 }
 
+function scoreProfileMatch(profile: ResearchProfile, rawText: string) {
+  const text = normalizeBusinessText(rawText);
+  if (!text) return { profile, score: 0, longest: 0, requiredMatches: 0 };
+  const keywordMatches = profile.keywords.filter((keyword) => includesBusinessTerm(text, keyword));
+  const tagMatches = (profile.tags || []).filter((tag) => includesBusinessTerm(text, tag));
+  const competitorMatches = profile.competitors.map((competitor) => competitor.name).filter((name) => includesBusinessTerm(text, name));
+  const negativeMatches = (profile.negativeKeywords || []).filter((keyword) => includesBusinessTerm(text, keyword));
+  const requiredMatches = (profile.requiredKeywordGroups || []).reduce((count, group) => count + (group.some((term) => includesBusinessTerm(text, term)) ? 1 : 0), 0);
+  const longest = [...keywordMatches, ...tagMatches, ...competitorMatches].reduce((max, term) => Math.max(max, normalizeBusinessText(term).length), 0);
+  let score = 0;
+  score += keywordMatches.length * 4;
+  score += tagMatches.length * 3;
+  score += competitorMatches.length * 2;
+  score += requiredMatches * 8;
+  score += Math.min(12, longest);
+  score -= negativeMatches.length * 10;
+  if (profile.requiredKeywordGroups?.length && requiredMatches === profile.requiredKeywordGroups.length) score += 10;
+  return { profile, score, longest, requiredMatches };
+}
+
 function matchProfileByText(text: string) {
   if (!text) return undefined;
-
-  // 키워드가 서로의 부분 문자열인 경우(예: "전자" vs "전자담배")
-  // 배열 내 등장 순서가 아니라 "가장 길게 일치하는 키워드"를 가진 프로파일을 우선한다.
-  // 이렇게 하면 더 구체적인(긴) 키워드를 가진 프로파일이 일반적인(짧은) 키워드를 가진
-  // 프로파일보다 항상 우선 매칭되어, "전자담배"가 "반도체·전자부품"으로 오매칭되는 문제를 방지한다.
-  let bestProfile: ResearchProfile | undefined;
-  let bestMatchLength = 0;
-
-  for (const profile of researchProfiles) {
-    const competitorNames = profile.competitors.map((competitor) => competitor.name.toLowerCase());
-    const candidates = [...profile.keywords.map((keyword) => keyword.toLowerCase()), ...competitorNames];
-    for (const candidate of candidates) {
-      if (candidate && text.includes(candidate) && candidate.length > bestMatchLength) {
-        bestMatchLength = candidate.length;
-        bestProfile = profile;
-      }
-    }
-  }
-
-  return bestProfile;
+  const scored = researchProfiles
+    .map((profile) => scoreProfileMatch(profile, text))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.requiredMatches !== a.requiredMatches) return b.requiredMatches - a.requiredMatches;
+      return b.longest - a.longest;
+    });
+  return scored[0]?.profile;
 }
 
 function getResearchProfile(companyName: string, industry: string) {
@@ -798,9 +1379,16 @@ function buildDartKosisScores(
       const nextPeer = Math.min(10, Math.max(1, profileScore + coverageBoost + liveBoost + kosisBoost));
       const ownAdjustment = getOwnCompanyAxisAdjustment(axis.key, industry, purpose);
       const nextOwn = Math.min(10, Math.max(1, profileScore + ownAdjustment + ownLiveBoost + Math.min(1, kosisBoost)));
+      const source: NonNullable<Score["source"]> = liveCompanies.length || ownCompany ? "DART/KOSIS" : "자동 추정";
+      const reasons = [
+        `${ownSourceLabel} 기반 우리회사 ${axis.label} ${nextOwn}점`,
+        `${sourceLabel} 기반 경쟁사 평균 ${nextPeer}점`,
+        `KOSIS ${industry || profile.label} 업종·${purpose} 목적 가중치 ${kosisBoost}`,
+      ];
+      const confidence = Math.min(95, 45 + (ownCompany ? 15 : 0) + (liveCompanies.length ? 20 : 0) + (currentScores[axis.key].note ? 10 : 0));
       const note = `${companyName || "우리회사"} ${axis.label} 점수는 ${nextOwn}점으로 산정했습니다. 근거: ${ownSourceLabel}, KOSIS ${industry || profile.label} 업종 관점, 분석 목적 ${purpose}. ${competitorNames} 기준 경쟁사 평균은 ${nextPeer}점입니다. 근거: ${sourceLabel}. 내부 실적 지표 입력 후 보정하세요.`;
 
-      return [axis.key, { ...currentScores[axis.key], own: nextOwn, peer: nextPeer, note }];
+      return [axis.key, { ...currentScores[axis.key], own: nextOwn, peer: nextPeer, note, source, confidence, reasons }];
     }),
   ) as Record<AxisKey, Score>;
 }
@@ -825,10 +1413,11 @@ function hydrateState(saved: Partial<AppState>): AppState {
   return {
     ...clone(defaultState),
     ...saved,
+    role: executiveRoles.some((item) => item.role === saved.role) ? saved.role as ExecutiveRole : defaultState.role,
     competitors,
     scores: { ...clone(defaultState.scores), ...saved.scores },
-    swot: { ...clone(defaultState.swot), ...saved.swot },
-    suppliers: saved.suppliers?.length ? saved.suppliers : clone(defaultState.suppliers),
+    swot: migrateSwotValue(saved.swot),
+    suppliers: saved.suppliers?.length ? saved.suppliers.map((supplier) => hydrateSupplier(supplier)) : clone(defaultState.suppliers),
     actions: saved.actions?.length ? saved.actions : clone(defaultState.actions),
     liveCompetitors: saved.liveCompetitors || [],
     competitorCandidates,
@@ -911,6 +1500,22 @@ function readState() {
   }
 }
 
+function ScmRiskNode({ data }: { data: ScmFlowData }) {
+  return (
+    <div className="scm-risk-flow-card">
+      <Handle type="target" position={Position.Left} />
+      <Handle type="target" position={Position.Top} />
+      <div><small>{data.nodeType}</small><strong>{data.label}</strong></div>
+      <span>{data.nodeType === "회사" ? "기준점" : `${data.riskScore}점`}</span>
+      {data.badges.length > 0 && <div className="flow-badge-list">{data.badges.slice(0, 2).map((badge) => <em key={badge}>{badge}</em>)}</div>}
+      <Handle type="source" position={Position.Right} />
+      <Handle type="source" position={Position.Bottom} />
+    </div>
+  );
+}
+
+const scmFlowNodeTypes: NodeTypes = { scmRisk: ScmRiskNode as never };
+
 function Radar({ scores }: { scores: Record<AxisKey, Score> }) {
   const points = (kind: "own" | "peer") =>
     axes.map((axis, index) => {
@@ -936,7 +1541,97 @@ function ScoreRing({ value }: { value: number }) {
   return <div className="score-ring" style={{ "--score": `${value * 3.6}deg` } as CSSProperties}><span>{value}</span></div>;
 }
 
-function buildMarkdownReport(state: AppState, scoreAverage: number, biggestGap: { label: string; gap: number }, tows: string[][]) {
+function getPurposeDueMonth(offsetMonths = 3) {
+  const due = new Date();
+  due.setMonth(due.getMonth() + offsetMonths);
+  return due.toISOString().slice(0, 7);
+}
+
+function buildDepartmentActionPlans(state: AppState, biggestGap: { label: string; gap: number }, tows: TowsStrategy[]): DepartmentActionPlan[] {
+  const due = getPurposeDueMonth(3);
+  const firstTows = tows[0]?.logic || `${state.purpose} 목적의 경쟁력 개선 전략을 구체화`;
+  return [
+    {
+      department: "전략기획",
+      task: `${state.industry || "핵심 사업"} 시장 진입·포트폴리오·제휴 옵션 비교`,
+      owner: "전략기획",
+      kpi: "전략 옵션 3개, 의사결정 기준 5개",
+      due,
+      rationale: firstTows,
+    },
+    {
+      department: "마케팅",
+      task: "타깃 고객·포지셔닝·채널·가격 대응안 수립",
+      owner: "마케팅",
+      kpi: "고객군 3개, 채널별 가격/메시지 초안",
+      due,
+      rationale: `${state.purpose} 관점에서 시장·채널 경쟁력을 강화합니다.`,
+    },
+    {
+      department: "경영지원",
+      task: "실행 조직·인력·예산·KPI 운영안 확정",
+      owner: "경영지원",
+      kpi: "부서별 R&R, 예산안, KPI 대시보드 초안",
+      due,
+      rationale: "전략 과제를 실행 가능한 관리 체계로 전환합니다.",
+    },
+    {
+      department: "운영/SCM",
+      task: `${biggestGap.label} 격차 축소를 위한 공급망·생산성·납기·품질 개선`,
+      owner: "운영/SCM",
+      kpi: "납기 준수율, 품질 이슈, 대체 공급처 지표",
+      due,
+      rationale: `${biggestGap.label} 개선축을 운영 실행 과제로 연결합니다.`,
+    },
+    {
+      department: "재무",
+      task: "수익성·투자여력·비용구조 기준의 실행안 검증",
+      owner: "재무",
+      kpi: "ROI, 원가 개선액, 투자 한도, 현금흐름 영향",
+      due,
+      rationale: "전략 실행의 재무 타당성과 리스크 허용 범위를 점검합니다.",
+    },
+  ];
+}
+
+function buildDecisionAgendas(state: AppState, executiveSummary: ReturnType<typeof getExecutiveSummary>, departmentPlans: DepartmentActionPlan[]): DecisionAgenda[] {
+  const roleLanguage = getRoleLanguage(state.role);
+  return [
+    { title: roleLanguage.question, owner: executiveSummary.role.label, decision: executiveSummary.decisionRequest },
+    { title: "Top5 경쟁사 대응 우선순위", owner: "전략기획", decision: "직접 경쟁사, 인접 경쟁사, 벤치마크 회사를 구분해 대응 순서를 확정" },
+    { title: "부서별 실행 KPI 승인", owner: "경영지원", decision: `${departmentPlans.length}개 부서 과제의 책임자, KPI, 기한 승인` },
+    { title: "90일 내 확인할 핵심 리스크", owner: "C레벨", decision: `${state.purpose} 추진 중 중단 조건과 리스크 모니터링 기준 확정` },
+  ];
+}
+
+function getExecutiveSummary(state: AppState, scoreAverage: number, biggestGap: { label: string; gap: number }, validCompetitors: Competitor[]) {
+  const role = getExecutiveRole(state.role);
+  const competitorCount = validCompetitors.length || state.competitorCandidates.length || state.competitors.filter((competitor) => competitor.name.trim()).length;
+  const priorityAxisLabels = role.primaryAxes.map((key) => axes.find((axis) => axis.key === key)?.label).filter(Boolean).join(" · ");
+  const decisionRequest = state.purpose.includes("가격")
+    ? "가격 방어선과 할인 허용 범위를 확정하세요."
+    : state.purpose.includes("채널")
+      ? "우선 공략 채널과 고객군별 메시지를 확정하세요."
+      : state.purpose.includes("M&A") || state.purpose.includes("투자")
+        ? "투자 기준, 실사 항목, 중단 조건을 확정하세요."
+        : state.purpose.includes("SCM")
+          ? "핵심 공급망 리스크와 대체 조달 기준을 확정하세요."
+          : "자원 배분 우선순위와 90일 실행 책임을 확정하세요.";
+  const riskSignal = biggestGap.gap >= 3 ? `${biggestGap.label} 격차가 커 즉시 보완이 필요합니다.` : `${biggestGap.label} 격차를 관리하면서 강점 확대가 가능합니다.`;
+
+  const roleLanguage = getRoleLanguage(state.role);
+  return {
+    role,
+    roleLanguage,
+    competitorCount,
+    priorityAxisLabels,
+    riskSignal,
+    decisionRequest,
+    headline: `${role.label} 관점에서 ${state.purpose} 목적의 경쟁력 판단을 정리합니다.`,
+  };
+}
+
+function buildMarkdownReport(state: AppState, scoreAverage: number, biggestGap: { label: string; gap: number }, tows: TowsStrategy[], departmentPlans: DepartmentActionPlan[], decisionAgendas: DecisionAgenda[]) {
   const scoreRows = axes
     .map((axis) => `| ${axis.label} | ${state.scores[axis.key].own} | ${state.scores[axis.key].peer} | ${state.scores[axis.key].note || "-"} |`)
     .join("\n");
@@ -952,11 +1647,18 @@ function buildMarkdownReport(state: AppState, scoreAverage: number, biggestGap: 
     .filter((action) => action.task || action.owner || action.kpi || action.due)
     .map((action) => `| ${fallback(action.task, "-")} | ${fallback(action.owner, "-")} | ${fallback(action.kpi, "-")} | ${fallback(action.due, "-")} |`)
     .join("\n");
+  const departmentRows = departmentPlans
+    .map((plan) => `| ${plan.department} | ${fallback(plan.task, "-")} | ${fallback(plan.kpi, "-")} | ${fallback(plan.due, "-")} |`)
+    .join("\n");
+  const agendaRows = decisionAgendas
+    .map((agenda) => `| ${agenda.title} | ${agenda.owner} | ${agenda.decision} |`)
+    .join("\n");
 
   return `# ${fallback(state.companyName, "우리 회사")} 경쟁력 분석 보고서
 
 ## 경영진 요약
 - 산업: ${fallback(state.industry, "미입력")}
+- 분석 관점: ${getExecutiveRole(state.role).label}
 - 분석 목적: ${state.purpose}
 - 분석 기간: ${state.period}
 - 종합 경쟁력 점수: ${scoreAverage}점
@@ -973,17 +1675,27 @@ ${scoreRows}
 ${competitorRows || "| - | - | - |"}
 
 ## SWOT/TOWS
-- 강점: ${splitLines(state.swot.strengths).join(", ") || "-"}
-- 약점: ${splitLines(state.swot.weaknesses).join(", ") || "-"}
-- 기회: ${splitLines(state.swot.opportunities).join(", ") || "-"}
-- 위협: ${splitLines(state.swot.threats).join(", ") || "-"}
+- 강점: ${getSwotItemText(state.swot.strengths).join(", ") || "-"}
+- 약점: ${getSwotItemText(state.swot.weaknesses).join(", ") || "-"}
+- 기회: ${getSwotItemText(state.swot.opportunities).join(", ") || "-"}
+- 위협: ${getSwotItemText(state.swot.threats).join(", ") || "-"}
 
-${tows.map(([label, text]) => `- ${label}: ${text}`).join("\n")}
+${tows.map((item) => `- ${item.label} ${item.name}: ${item.logic} / 90일 액션: ${item.action90} / KPI: ${item.kpi} / 우선순위: ${item.priority}`).join("\n")}
 
 ## SCM 리스크
 | 공급처 | 의존도 | 리드타임 | 위험도 |
 | --- | ---: | ---: | --- |
 ${supplierRows || "| - | - | - | - |"}
+
+## 부서별 실행 KPI
+| 부서 | 실행 과제 | KPI | 기한 |
+| --- | --- | --- | --- |
+${departmentRows || "| - | - | - | - |"}
+
+## 의사결정 안건
+| 안건 | 오너 | 결정할 내용 |
+| --- | --- | --- |
+${agendaRows || "| - | - | - |"}
 
 ## 90일 실행 과제
 | 과제 | 책임자 | KPI | 기한 |
@@ -997,6 +1709,8 @@ function App() {
   const [active, setActive] = useState("overview");
   const [saved, setSaved] = useState(true);
   const [isComparing, setIsComparing] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [selectedScmIndex, setSelectedScmIndex] = useState<number | null>(null);
 
   useEffect(() => {
     document.title = appName;
@@ -1009,24 +1723,31 @@ function App() {
     return () => window.clearTimeout(timer);
   }, [state]);
 
-  const scoreAverage = useMemo(() => Math.round(avg(axes.map((axis) => state.scores[axis.key].own)) * 10), [state.scores]);
+  const scoreAverage = useMemo(() => weightedScore(state.scores, state.purpose, state.role), [state.purpose, state.role, state.scores]);
   const biggestGap = useMemo(
     () => axes.map((axis) => ({ label: axis.label, gap: Math.max(0, state.scores[axis.key].peer - state.scores[axis.key].own) })).sort((a, b) => b.gap - a.gap)[0],
     [state.scores],
   );
-  const tows = [
-    ["SO", `${firstLine(state.swot.strengths, "강점")}을 활용해 ${firstLine(state.swot.opportunities, "기회")}를 선점합니다.`],
-    ["ST", `${firstLine(state.swot.strengths, "강점")}으로 ${firstLine(state.swot.threats, "위협")}의 영향을 낮춥니다.`],
-    ["WO", `${firstLine(state.swot.opportunities, "기회")}를 활용해 ${firstLine(state.swot.weaknesses, "약점")}을 90일 개선 과제로 전환합니다.`],
-    ["WT", `${firstLine(state.swot.weaknesses, "약점")}과 ${firstLine(state.swot.threats, "위협")}이 만나는 영역을 리스크 등록부에 올립니다.`],
-  ];
-  const highRiskSuppliers = state.suppliers.filter((supplier) => supplier.risk === "높음" || supplier.dependence >= 50);
-  const validActions = state.actions.filter((action) => action.task || action.owner || action.kpi || action.due);
   const researchProfile = useMemo(() => getResearchProfile(state.companyName, state.industry), [state.companyName, state.industry]);
+  const tows = useMemo(() => buildTowsStrategies(state), [state]);
+  const swotDrafts = useMemo(() => buildSwotDrafts(state, researchProfile), [researchProfile, state]);
+  const swotCoachQuestions = useMemo(() => buildSwotCoachQuestions(state, researchProfile, biggestGap), [biggestGap, researchProfile, state]);
+  const coreSwotItems = useMemo(() => getCoreSwotItems(state.swot), [state.swot]);
+  const scmRiskSummary = useMemo(() => buildScmRiskSummary(state.suppliers), [state.suppliers]);
+  const highRiskSuppliers = scmRiskSummary.highRiskNodes;
+  const validActions = state.actions.filter((action) => action.task || action.owner || action.kpi || action.due);
   const showSolarInverterComparison = researchProfile.label === "태양광 인버터·전력변환";
   const validCompetitors = useMemo(() => state.competitors.filter((competitor) => competitor.name.trim()), [state.competitors]);
+  const competitorAxisScores = useMemo(() => buildCompetitorAxisScores(researchProfile, validCompetitors, state.companyName, state.industry), [researchProfile, state.companyName, state.industry, validCompetitors]);
+  const axisDetails = useMemo(() => buildAxisDetails(state, researchProfile, competitorAxisScores, state.liveCompetitors), [competitorAxisScores, researchProfile, state]);
+  const axisWeights = useMemo(() => getPurposeAxisWeights(state.purpose, state.role), [state.purpose, state.role]);
+  const scmCompetitorRows = useMemo(() => buildScmCompetitorRows(validCompetitors, competitorAxisScores, scmRiskSummary), [competitorAxisScores, scmRiskSummary, validCompetitors]);
+  const scmFlow = useMemo(() => buildScmFlow(state.suppliers), [state.suppliers]);
   const displayCandidates = state.competitorCandidates.length ? state.competitorCandidates : buildCandidates(validCompetitors, state.companyName, state.industry);
-  const markdownReport = useMemo(() => buildMarkdownReport(state, scoreAverage, biggestGap, tows), [biggestGap, scoreAverage, state, tows]);
+  const executiveSummary = useMemo(() => getExecutiveSummary(state, scoreAverage, biggestGap, validCompetitors), [biggestGap, scoreAverage, state, validCompetitors]);
+  const departmentPlans = useMemo(() => buildDepartmentActionPlans(state, biggestGap, tows), [biggestGap, state, tows]);
+  const decisionAgendas = useMemo(() => buildDecisionAgendas(state, executiveSummary, departmentPlans), [departmentPlans, executiveSummary, state]);
+  const markdownReport = useMemo(() => buildMarkdownReport(state, scoreAverage, biggestGap, tows, departmentPlans, decisionAgendas), [biggestGap, decisionAgendas, departmentPlans, scoreAverage, state, tows]);
   const tabs = [
     ["overview", ClipboardList, "개요"],
     ["scorecard", BarChart3, "6축 진단"],
@@ -1064,8 +1785,83 @@ function App() {
   const update = (patch: Partial<AppState>) => setState((current) => ({ ...current, ...patch }));
   const updateScore = (key: AxisKey, patch: Partial<Score>) => setState((current) => ({ ...current, scores: { ...current.scores, [key]: { ...current.scores[key], ...patch } } }));
   const replaceCompetitor = (index: number, patch: Partial<Competitor>) => update({ competitors: state.competitors.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)) });
-  const replaceSupplier = (index: number, patch: Partial<Supplier>) => update({ suppliers: state.suppliers.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)) });
+  const replaceSupplier = (index: number, patch: Partial<Supplier>) => update({ suppliers: state.suppliers.map((row, rowIndex) => (rowIndex === index ? hydrateSupplier({ ...row, ...patch }) : row)) });
   const replaceAction = (index: number, patch: Partial<Action>) => update({ actions: state.actions.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)) });
+  const updateSwotItem = (category: SwotCategory, id: string, patch: Partial<SwotItem>) => setState((current) => ({
+    ...current,
+    swot: { ...current.swot, [category]: current.swot[category].map((item) => item.id === id ? { ...item, ...patch } : item) },
+  }));
+  const addSwotItem = (category: SwotCategory) => setState((current) => ({
+    ...current,
+    swot: { ...current.swot, [category]: [...current.swot[category], createSwotItem(category)] },
+  }));
+  const removeSwotItem = (category: SwotCategory, id: string) => setState((current) => {
+    const nextItems = current.swot[category].filter((item) => item.id !== id);
+    return { ...current, swot: { ...current.swot, [category]: nextItems.length ? nextItems : [createSwotItem(category)] } };
+  });
+  const applySwotDrafts = () => setState((current) => ({
+    ...current,
+    swot: Object.fromEntries(swotCategories.map(({ key }) => {
+      const existing = current.swot[key].filter((item) => item.content.trim());
+      return [key, existing.length ? [...existing, ...swotDrafts[key]] : swotDrafts[key]];
+    })) as Record<SwotCategory, SwotItem[]>,
+  }));
+  const addTowsAction = (strategy: TowsStrategy) => addDepartmentPlan({
+    department: strategy.owner,
+    task: `[${strategy.label}] ${strategy.action90}`,
+    owner: strategy.owner,
+    kpi: strategy.kpi,
+    due: getPurposeDueMonth(3),
+    rationale: strategy.logic,
+  });
+  const syncScmScore = () => setState((current) => {
+    const summary = buildScmRiskSummary(current.suppliers);
+    const currentScm = current.scores.scm;
+    const peerScore = Math.max(currentScm.peer, 7);
+    return {
+      ...current,
+      scores: {
+        ...current.scores,
+        scm: {
+          ...currentScm,
+          own: summary.recommendedScore,
+          peer: peerScore,
+          source: "사용자 입력",
+          confidence: Math.min(95, 55 + summary.highRiskNodes.length * 8),
+          reasons: [
+            `Step 4 SCM 평균 위험도 ${summary.averageRisk}점, 최대 ${summary.maxRisk}점`,
+            summary.highRiskNodes.length ? `고위험 노드 ${summary.highRiskNodes.map((node) => node.name || node.type).join(" · ")}` : "고위험 노드 없음",
+            `자동 권고 SCM 점수 ${summary.recommendedScore}점`,
+          ],
+          note: `${summary.headline} Step 4 SCM 리스크 기반으로 우리회사 SCM 점수를 ${summary.recommendedScore}점으로 보정했습니다.`,
+        },
+      },
+    };
+  });
+  const addScmWeakness = () => setState((current) => {
+    const summary = buildScmRiskSummary(current.suppliers);
+    const item = buildScmWeaknessItem(summary);
+    const exists = current.swot.weaknesses.some((weakness) => weakness.content === item.content);
+    return exists ? current : { ...current, swot: { ...current.swot, weaknesses: [...current.swot.weaknesses.filter((weakness) => weakness.content.trim()), item] } };
+  });
+  const addScmAction = () => addDepartmentPlan(buildScmActionPlan(scmRiskSummary));
+  const focusScmNode = (nodeId: string) => {
+    if (!nodeId.startsWith("scm-")) return;
+    const index = Number(nodeId.replace("scm-", ""));
+    if (!Number.isFinite(index)) return;
+    setSelectedScmIndex(index);
+    window.setTimeout(() => document.getElementById(`scm-node-row-${index}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+  };
+  const addDepartmentPlan = (plan: DepartmentActionPlan) => setState((current) => {
+    const nextAction: Action = { task: plan.task, owner: plan.owner, kpi: plan.kpi, due: plan.due };
+    const hasSameTask = current.actions.some((action) => action.task.trim() === nextAction.task.trim());
+    if (hasSameTask) return current;
+    const emptyIndex = current.actions.findIndex((action) => !action.task && !action.owner && !action.kpi && !action.due);
+    if (emptyIndex >= 0) {
+      return { ...current, actions: current.actions.map((action, index) => index === emptyIndex ? nextAction : action) };
+    }
+    return { ...current, actions: [...current.actions, nextAction] };
+  });
   const researchCompetitors = async () => {
     const suggestedCompetitors = researchProfile.competitors;
     const openDartKey = envOpenDartKey;
@@ -1225,33 +2021,58 @@ function App() {
   };
 
   return (
-    <div className="app-shell">
+    <div className={sidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
       <aside className="sidebar">
-        <div className="brand"><div className="brand-mark"><Building2 size={24} /></div><div><strong>{appName}</strong><span>경영후계자용 분석 앱</span></div></div>
+        <div className="sidebar-topline">
+          <div className="brand"><div className="brand-mark"><img src={`${import.meta.env.BASE_URL}cca-app-icon.png`} alt="CCA" /></div><div className="brand-text"><strong>{appName}</strong></div></div>
+          <button className="sidebar-toggle" type="button" onClick={() => setSidebarCollapsed((value) => !value)} aria-label={sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"} title={sidebarCollapsed ? "사이드바 펼치기" : "사이드바 접기"}>{sidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}</button>
+        </div>
         <nav aria-label="분석 단계">
-          {tabs.map(([id, Icon, label]) => <button className={active === id ? "active" : ""} key={id} onClick={() => setActive(id)} type="button"><Icon size={18} />{label}</button>)}
+          {tabs.map(([id, Icon, label]) => <button className={active === id ? "active" : ""} key={id} onClick={() => setActive(id)} type="button" title={sidebarCollapsed ? label : undefined}><Icon size={18} /><span>{label}</span></button>)}
         </nav>
         <div className="sidebar-actions">
-          <button type="button" onClick={() => setState(clone(sampleState))}><RefreshCw size={17} />샘플</button>
-          <button type="button" onClick={() => setState(clone(defaultState))}><Trash2 size={17} />초기화</button>
+          <button type="button" onClick={() => setState(clone(sampleState))} title={sidebarCollapsed ? "샘플" : undefined}><RefreshCw size={17} /><span>샘플</span></button>
+          <button type="button" onClick={() => setState(clone(defaultState))} title={sidebarCollapsed ? "초기화" : undefined}><Trash2 size={17} /><span>초기화</span></button>
         </div>
       </aside>
 
       <main className="workspace">
         <header className="topbar">
-          <div><p className="eyebrow">Successor Strategy Cockpit</p><h1>우리 회사의 경쟁력을 비교하고, 후계 실행 과제로 연결하세요</h1></div>
+          <div><p className="eyebrow">Executive Strategy Cockpit</p><h1>우리 회사의 경쟁력을 비교하고, 경영 실행 과제로 연결하세요</h1></div>
           <div className="topbar-actions"><span className="save-pill">{saved ? "저장됨" : "저장 중"}</span><button type="button" onClick={exportJson} aria-label="JSON 내보내기"><Download size={19} /></button><button type="button" onClick={exportMarkdown} aria-label="Markdown 보고서 내보내기"><FileText size={19} /></button><button type="button" onClick={() => window.print()} aria-label="보고서 인쇄"><Printer size={19} /></button></div>
         </header>
 
         {active === "overview" && (
           <Panel eyebrow="Step 1" title="분석 범위 설정">
-            <div className="metric-strip"><strong>{scoreAverage}</strong><span>종합점수</span><strong>{biggestGap.label}</strong><span>개선축</span><strong>{state.actions.filter((action) => action.task).length}</strong><span>과제</span></div>
-            <div className="form-grid">
+            <div className="form-grid executive-scope-grid">
               <label>회사명<input value={state.companyName} onChange={(event) => update({ companyName: event.target.value, competitorCandidates: [], researchStatus: "" })} placeholder="예: 한빛정밀" /></label>
               <label>산업<input value={state.industry} onChange={(event) => update({ industry: event.target.value, competitorCandidates: [], researchStatus: "" })} placeholder="예: 자동차 부품 제조" /></label>
-              <label>분석 목적<select value={state.purpose} onChange={(event) => update({ purpose: event.target.value })}>{["시장점유 방어", "신사업 진입", "원가경쟁력 개선", "SCM 안정화", "M&A 타당성"].map((item) => <option key={item}>{item}</option>)}</select></label>
+              <label>분석 관점<select value={state.role} onChange={(event) => update({ role: event.target.value as ExecutiveRole })}>{executiveRoles.map((item) => <option key={item.role} value={item.role}>{item.label}</option>)}</select></label>
+              <label>분석 목적<select value={state.purpose} onChange={(event) => update({ purpose: event.target.value })}>{analysisPurposes.map((item) => <option key={item}>{item}</option>)}</select></label>
               <label>분석 기간<select value={state.period} onChange={(event) => update({ period: event.target.value })}>{["최근 3년", "최근 1년", "향후 6개월", "향후 12개월"].map((item) => <option key={item}>{item}</option>)}</select></label>
             </div>
+            <section className="executive-summary-grid" aria-label="임원용 요약 대시보드">
+              <article>
+                <span>분석 관점</span>
+                <strong>{executiveSummary.role.label}</strong>
+                <p>{executiveSummary.role.focus}</p>
+              </article>
+              <article>
+                <span>핵심 판단</span>
+                <strong>{scoreAverage}점 · {biggestGap.label}</strong>
+                <p>{executiveSummary.riskSignal}</p>
+              </article>
+              <article>
+                <span>비교 범위</span>
+                <strong>{executiveSummary.competitorCount || 0}개 경쟁사</strong>
+                <p>{executiveSummary.priorityAxisLabels} 축을 우선 확인합니다.</p>
+              </article>
+              <article>
+                <span>의사결정 요청</span>
+                <strong>{state.purpose}</strong>
+                <p>{executiveSummary.decisionRequest}</p>
+              </article>
+            </section>
             <section className="research-card">
               <div>
                 <p className="eyebrow">Competitor Discovery</p>
@@ -1351,45 +2172,148 @@ function App() {
                 {axes.map((axis) => {
                   const Icon = axis.icon;
                   const score = state.scores[axis.key];
-                  return <article className="axis-card" key={axis.key}><div className="axis-title"><Icon size={20} /><div><strong>{axis.label}</strong><span>{axis.hint}</span></div></div><div className="range-grid"><label>우리 회사 <b>{score.own}</b><input type="range" min="1" max="10" value={score.own} onChange={(event) => updateScore(axis.key, { own: Number(event.target.value) })} /></label><label>경쟁사 평균 <b>{score.peer}</b><input type="range" min="1" max="10" value={score.peer} onChange={(event) => updateScore(axis.key, { peer: Number(event.target.value) })} /></label></div><input value={score.note} onChange={(event) => updateScore(axis.key, { note: event.target.value })} placeholder="판단 근거와 출처" /></article>;
+                  const detail = axisDetails.find((item) => item.axis === axis.key);
+                  return <article className="axis-card" key={axis.key}>
+                    <div className="axis-title"><Icon size={20} /><div><strong>{axis.label}</strong><span>{axis.hint}</span></div><em>가중치 {axisWeights[axis.key].toFixed(1)}x</em></div>
+                    <div className="range-grid"><label>우리 회사 <b>{score.own}</b><input type="range" min="1" max="10" value={score.own} onChange={(event) => updateScore(axis.key, { own: Number(event.target.value), source: "사용자 입력" })} /></label><label>경쟁사 평균 <b>{score.peer}</b><input type="range" min="1" max="10" value={score.peer} onChange={(event) => updateScore(axis.key, { peer: Number(event.target.value), source: "사용자 입력" })} /></label></div>
+                    <div className="axis-evidence-strip"><span>{detail?.source || "자동 추정"}</span><span>근거 신뢰도 {detail?.confidence || 45}%</span><span>{score.own >= score.peer ? "우위/동률" : `격차 ${score.peer - score.own}점`}</span></div>
+                    <div className="submetric-grid">
+                      {(detail?.subMetrics || []).map((metric) => <div key={metric.label}><strong>{metric.label}</strong><span>우리 {metric.own} · 경쟁 {metric.peer}</span><small>{metric.reason}</small></div>)}
+                    </div>
+                    <div className="score-reason-list">{(detail?.reasons || []).slice(0, 3).map((reason) => <span key={reason}>{reason}</span>)}</div>
+                    <input value={score.note} onChange={(event) => updateScore(axis.key, { note: event.target.value, source: "사용자 입력" })} placeholder="판단 근거와 출처" />
+                  </article>;
                 })}
               </div>
-              <div className="chart-panel"><ScoreRing value={scoreAverage} /><Radar scores={state.scores} /><div className="legend"><span className="own-dot">우리 회사</span><span className="peer-dot">경쟁사 평균</span></div></div>
+              <div className="chart-panel"><ScoreRing value={scoreAverage} /><Radar scores={state.scores} /><div className="legend"><span className="own-dot">우리 회사</span><span className="peer-dot">경쟁사 평균</span></div><div className="weight-panel"><strong>목적별 가중치</strong>{axes.map((axis) => <span key={axis.key}>{axis.label} {axisWeights[axis.key].toFixed(1)}x</span>)}</div></div>
             </div>
+            <section className="competitor-score-panel">
+              <div className="candidate-heading"><strong>Top5 경쟁사별 6축 추정 점수</strong><span>경쟁사 평균은 개별 후보의 사업부문 적합도와 프로파일 점수를 함께 반영합니다.</span></div>
+              <div className="competitor-score-table">
+                <div><strong>경쟁사</strong>{axes.map((axis) => <strong key={axis.key}>{axis.label}</strong>)}<strong>근거</strong></div>
+                {(competitorAxisScores.length ? competitorAxisScores : buildCompetitorAxisScores(researchProfile, researchProfile.competitors, state.companyName, state.industry)).map((row) => (
+                  <div key={row.competitor}><span>{row.competitor}</span>{axes.map((axis) => <span key={axis.key}>{row.scores[axis.key]}</span>)}<span>{row.reason}</span></div>
+                ))}
+              </div>
+            </section>
           </Panel>
         )}
 
         {active === "swot" && (
-          <Panel eyebrow="Step 3" title="SWOT에서 TOWS 전략으로">
-            <div className="swot-grid">
-              <label className="swot-card strength">강점<textarea value={state.swot.strengths} onChange={(event) => update({ swot: { ...state.swot, strengths: event.target.value } })} placeholder="기술력, 장기 고객, 원가 우위" /></label>
-              <label className="swot-card weakness">약점<textarea value={state.swot.weaknesses} onChange={(event) => update({ swot: { ...state.swot, weaknesses: event.target.value } })} placeholder="후계 체계, 설비 노후화, 의존도" /></label>
-              <label className="swot-card opportunity">기회<textarea value={state.swot.opportunities} onChange={(event) => update({ swot: { ...state.swot, opportunities: event.target.value } })} placeholder="정책 지원, 신규 수요, 경쟁사 이슈" /></label>
-              <label className="swot-card threat">위협<textarea value={state.swot.threats} onChange={(event) => update({ swot: { ...state.swot, threats: event.target.value } })} placeholder="가격 인하, 원자재 변동, 대체재" /></label>
+          <Panel eyebrow="Step 3" title="구조화 SWOT에서 TOWS 실행전략으로" action={<button className="secondary" type="button" onClick={applySwotDrafts}><Wand2 size={17} />SWOT 초안 생성</button>}>
+            <section className="swot-coach-panel">
+              <div>
+                <strong>질문 기반 SWOT 코치</strong>
+                <p>6축 진단, Top5 경쟁사, 사업특성 신호를 바탕으로 핵심 질문을 제안합니다.</p>
+              </div>
+              <div className="coach-question-list">
+                {swotCoachQuestions.map((question) => <span key={question}>{question}</span>)}
+              </div>
+            </section>
+
+            <div className="swot-grid structured">
+              {swotCategories.map((category) => (
+                <section className={`swot-card ${category.tone}`} key={category.key}>
+                  <div className="swot-card-head">
+                    <div><strong>{category.label}</strong><span>{category.placeholder}</span></div>
+                    <button type="button" onClick={() => addSwotItem(category.key)} aria-label={`${category.label} 항목 추가`}><Plus size={16} /></button>
+                  </div>
+                  <div className="swot-item-list">
+                    {state.swot[category.key].map((item) => (
+                      <article className="swot-item-card" key={item.id}>
+                        <label>내용<input value={item.content} onChange={(event) => updateSwotItem(category.key, item.id, { content: event.target.value })} placeholder={category.placeholder} /></label>
+                        <label>근거<input value={item.evidence} onChange={(event) => updateSwotItem(category.key, item.id, { evidence: event.target.value })} placeholder="DART/KOSIS, 경쟁사 비교표, 내부 지표 등" /></label>
+                        <div className="swot-mini-grid">
+                          <label>영향도 <b>{item.impact}</b><input type="range" min="1" max="5" value={item.impact} onChange={(event) => updateSwotItem(category.key, item.id, { impact: Number(event.target.value) })} /></label>
+                          <label>확실성 <b>{item.certainty}</b><input type="range" min="1" max="5" value={item.certainty} onChange={(event) => updateSwotItem(category.key, item.id, { certainty: Number(event.target.value) })} /></label>
+                        </div>
+                        <div className="swot-mini-grid">
+                          <label>관련 경쟁사<select value={item.competitor} onChange={(event) => updateSwotItem(category.key, item.id, { competitor: event.target.value })}><option value="">선택 없음</option>{validCompetitors.map((competitor) => <option key={competitor.name} value={competitor.name}>{competitor.name}</option>)}</select></label>
+                          <label>관련 6축<select value={item.axis} onChange={(event) => updateSwotItem(category.key, item.id, { axis: event.target.value as AxisKey })}>{axes.map((axis) => <option key={axis.key} value={axis.key}>{axis.label}</option>)}</select></label>
+                        </div>
+                        <button className="text-danger" type="button" onClick={() => removeSwotItem(category.key, item.id)}><Trash2 size={15} />항목 삭제</button>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ))}
             </div>
-            <div className="strategy-grid">{tows.map(([label, text]) => <article key={label}><strong>{label}</strong><p>{text}</p></article>)}</div>
+
+            <section className="swot-matrix-panel">
+              <div><strong>중요도-확실성 매트릭스</strong><p>영향도와 확실성이 높은 항목을 TOWS 핵심 재료로 우선 사용합니다.</p></div>
+              <div className="matrix-grid">
+                <article><span>핵심 재료</span>{swotCategories.flatMap(({ key }) => coreSwotItems[key].filter((item) => item.impact >= 4 && item.certainty >= 4).map((item) => <strong key={item.id}>{item.content}</strong>))}</article>
+                <article><span>검증 필요</span>{swotCategories.flatMap(({ key }) => coreSwotItems[key].filter((item) => item.impact >= 4 && item.certainty < 4).map((item) => <strong key={item.id}>{item.content}</strong>))}</article>
+                <article><span>보조 메모</span>{swotCategories.flatMap(({ key }) => coreSwotItems[key].filter((item) => item.impact < 4).slice(0, 3).map((item) => <strong key={item.id}>{item.content}</strong>))}</article>
+              </div>
+            </section>
+
+            <div className="strategy-grid expanded">{tows.map((strategy) => <article key={strategy.label}><div className="strategy-head"><strong>{strategy.label} · {strategy.name}</strong><span>{strategy.priority}</span></div><p>{strategy.logic}</p><dl><dt>90일 액션</dt><dd>{strategy.action90}</dd><dt>KPI</dt><dd>{strategy.kpi}</dd><dt>리스크</dt><dd>{strategy.risk}</dd></dl><button type="button" onClick={() => addTowsAction(strategy)}><Plus size={15} />실행 과제로 전환</button></article>)}</div>
           </Panel>
         )}
 
         {active === "scm" && (
           <Panel eyebrow="Step 4" title="SCM 네트워크와 리스크">
+            <section className="scm-bridge-panel">
+              <article><span>평균 위험도</span><strong>{scmRiskSummary.averageRisk}점</strong><p>{scmRiskSummary.headline}</p></article>
+              <article><span>6축 권고</span><strong>SCM {scmRiskSummary.recommendedScore}점</strong><p>위험도가 높을수록 Step 2 SCM 점수를 낮춰 보수적으로 반영합니다.</p></article>
+              <article><span>자동 탐지</span><strong>{scmRiskSummary.highRiskNodes.length}개</strong><p>핵심 병목 {scmRiskSummary.bottlenecks.length} · 단일소스 {scmRiskSummary.singleSources.length} · 장기 리드타임 {scmRiskSummary.longLeadTimes.length}</p></article>
+              <div className="scm-bridge-actions"><button className="secondary" type="button" onClick={syncScmScore}>6축 SCM 반영</button><button className="secondary" type="button" onClick={addScmWeakness}>SWOT 약점 추가</button><button className="primary" type="button" onClick={addScmAction}><Plus size={15} />실행 과제 전환</button></div>
+            </section>
             <div className="scm-layout">
-              <div className="network-map"><svg viewBox="0 0 720 360" role="img" aria-label="공급망 네트워크"><line x1="155" y1="85" x2="350" y2="180" /><line x1="155" y1="180" x2="350" y2="180" /><line x1="155" y1="275" x2="350" y2="180" /><line x1="455" y1="180" x2="610" y2="180" /><circle cx="118" cy="85" r="46" /><text x="118" y="91">원재료</text><circle cx="118" cy="180" r="46" /><text x="118" y="186">부품</text><circle cx="118" cy="275" r="46" /><text x="118" y="281">외주</text><rect x="330" y="132" width="145" height="96" rx="8" /><text x="402" y="186">우리 회사</text><circle cx="650" cy="180" r="52" /><text x="650" y="186">고객</text></svg></div>
-              <EditableList title="공급처 리스크" addLabel="공급처" rows={state.suppliers} onAdd={() => update({ suppliers: [...state.suppliers, { name: "", dependence: 30, leadTime: 14, risk: "보통" }] })} onRemove={(index) => update({ suppliers: state.suppliers.filter((_, rowIndex) => rowIndex !== index) })}>
-                {(supplier, index) => <>
-                  <label>공급처<input value={supplier.name} onChange={(event) => replaceSupplier(index, { name: event.target.value })} placeholder="공급처명" /></label>
-                  <label>의존도 %<input type="number" min="0" max="100" value={supplier.dependence} onChange={(event) => replaceSupplier(index, { dependence: Number(event.target.value) })} /></label>
-                  <label>리드타임 일<input type="number" min="0" value={supplier.leadTime} onChange={(event) => replaceSupplier(index, { leadTime: Number(event.target.value) })} /></label>
-                  <label>위험도<select value={supplier.risk} onChange={(event) => replaceSupplier(index, { risk: event.target.value as Risk })}>{["낮음", "보통", "높음"].map((risk) => <option key={risk}>{risk}</option>)}</select></label>
-                </>}
+              <div className="network-map reactflow-network"><ReactFlow nodes={scmFlow.nodes} edges={scmFlow.edges} nodeTypes={scmFlowNodeTypes} fitView nodesDraggable={false} nodesConnectable={false} elementsSelectable onNodeClick={(_, node) => focusScmNode(node.id)}><Background gap={18} size={1} /><Controls showInteractive={false} /></ReactFlow><div className="network-legend"><span><i className="low" />낮음</span><span><i className="mid" />보통</span><span><i className="high" />높음</span></div></div>
+              <EditableList className="scm-node-list" title="SCM 노드 리스크" addLabel="노드" rows={state.suppliers} rowId={(_, index) => `scm-node-row-${index}`} rowClassName={(_, index) => selectedScmIndex === index ? "selected-row" : ""} onAdd={() => update({ suppliers: [...state.suppliers, createScmNode()] })} onRemove={(index) => update({ suppliers: state.suppliers.filter((_, rowIndex) => rowIndex !== index) })}>
+                {(supplier, index) => {
+                  const riskScore = getScmRiskScore(supplier);
+                  const riskLevel = getScmRiskLevel(riskScore);
+                  const badges = getScmRiskBadges(supplier);
+                  return <>
+                    <label>유형<select value={supplier.type} onChange={(event) => replaceSupplier(index, { type: event.target.value as ScmNodeType })}>{scmNodeTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
+                    <label>노드명<input value={supplier.name} onChange={(event) => replaceSupplier(index, { name: event.target.value })} placeholder="공급처/공정/거점/고객명" /></label>
+                    <label>의존도 %<input type="number" min="0" max="100" value={supplier.dependence} onChange={(event) => replaceSupplier(index, { dependence: Number(event.target.value) })} /></label>
+                    <label>리드타임 일<input type="number" min="0" value={supplier.leadTime} onChange={(event) => replaceSupplier(index, { leadTime: Number(event.target.value) })} /></label>
+                    <label>대체 수<input type="number" min="0" value={supplier.alternatives} onChange={(event) => replaceSupplier(index, { alternatives: Number(event.target.value) })} /></label>
+                    <label>품질 이슈<input type="number" min="0" value={supplier.qualityIssues} onChange={(event) => replaceSupplier(index, { qualityIssues: Number(event.target.value) })} /></label>
+                    <label>인증 필요<select value={supplier.certificationRequired ? "예" : "아니오"} onChange={(event) => replaceSupplier(index, { certificationRequired: event.target.value === "예" })}>{["아니오", "예"].map((value) => <option key={value}>{value}</option>)}</select></label>
+                    <label>지역 리스크<select value={supplier.regionRisk} onChange={(event) => replaceSupplier(index, { regionRisk: event.target.value as Risk })}>{["낮음", "보통", "높음"].map((risk) => <option key={risk}>{risk}</option>)}</select></label>
+                    <div className={`scm-risk-result risk-${riskLevel}`}>
+                      <strong>{riskScore}점</strong>
+                      <span>{riskLevel}</span>
+                      <div>{badges.length ? badges.map((badge) => <em key={badge}>{badge}</em>) : <em>정상 범위</em>}</div>
+                    </div>
+                  </>;
+                }}
               </EditableList>
             </div>
+            <section className="scm-competitor-panel">
+              <div className="candidate-heading"><strong>경쟁사 SCM 비교 관점</strong><span>납기, 공급처 다변화, 양산 안정성, 대형 프로젝트 대응력 기준으로 확인합니다.</span></div>
+              <div className="scm-competitor-table">
+                <div><strong>경쟁사</strong><strong>SCM 점수</strong><strong>판정</strong><strong>비교 근거</strong></div>
+                {scmCompetitorRows.map((row) => <div key={row.name}><span>{row.name}</span><span>{row.scmScore}</span><span>{row.comparison}</span><span>{row.reason}</span></div>)}
+              </div>
+            </section>
           </Panel>
         )}
 
         {active === "actions" && (
           <Panel eyebrow="Step 5" title="실행계획과 KPI">
-            <EditableList title="90일 실행 과제" addLabel="과제" rows={state.actions} onAdd={() => update({ actions: [...state.actions, { task: "", owner: "", kpi: "", due: "" }] })} onRemove={(index) => update({ actions: state.actions.filter((_, rowIndex) => rowIndex !== index) })}>
+            <section className="department-plan-panel" aria-label="부서별 추천 실행 과제">
+              <div className="candidate-heading">
+                <strong>부서별 액션 플랜</strong>
+                <span>{executiveSummary.roleLanguage.reportTone}</span>
+              </div>
+              <div className="department-plan-grid">
+                {departmentPlans.map((plan) => (
+                  <article key={plan.department}>
+                    <div><small>{plan.department}</small><strong>{plan.task}</strong></div>
+                    <p>{plan.rationale}</p>
+                    <span>{plan.kpi} · {plan.due}</span>
+                    <button className="secondary" type="button" onClick={() => addDepartmentPlan(plan)}><Plus size={15} />과제 추가</button>
+                  </article>
+                ))}
+              </div>
+            </section>
+            <EditableList className="action-list" title="90일 실행 과제" addLabel="과제" rows={state.actions} onAdd={() => update({ actions: [...state.actions, { task: "", owner: "", kpi: "", due: "" }] })} onRemove={(index) => update({ actions: state.actions.filter((_, rowIndex) => rowIndex !== index) })}>
               {(action, index) => <>
                 <label>과제<input value={action.task} onChange={(event) => replaceAction(index, { task: event.target.value })} placeholder="실행 과제" /></label>
                 <label>책임자<input value={action.owner} onChange={(event) => replaceAction(index, { owner: event.target.value })} placeholder="담당자" /></label>
@@ -1397,7 +2321,7 @@ function App() {
                 <label>기한<input type="month" value={action.due} onChange={(event) => replaceAction(index, { due: event.target.value })} /></label>
               </>}
             </EditableList>
-            <div className="memo"><article><strong>핵심 판단</strong><p>{state.companyName || "우리 회사"}의 우선 개선축은 {biggestGap.label}입니다. 경쟁사 대비 {biggestGap.gap}점 차이를 줄이는 실행 과제가 필요합니다.</p></article><article><strong>보고 메모</strong><p>{state.purpose} 목적의 {state.period} 분석입니다. 숫자 입력 후 인쇄 버튼으로 경영진 1페이지 초안을 출력할 수 있습니다.</p></article></div>
+            <div className="memo"><article><strong>{executiveSummary.roleLanguage.question}</strong><p>{state.companyName || "우리 회사"}의 우선 개선축은 {biggestGap.label}입니다. {executiveSummary.roleLanguage.verb}하기 위한 실행 과제를 확정하세요.</p></article><article><strong>보고 메모</strong><p>{state.purpose} 목적의 {state.period} 분석입니다. 부서별 KPI와 의사결정 안건을 경영회의 자료로 활용하세요.</p></article></div>
           </Panel>
         )}
 
@@ -1408,7 +2332,7 @@ function App() {
                 <div>
                   <p className="eyebrow">Competitive Analysis Memo</p>
                   <h2>{state.companyName || "우리 회사"} 경쟁력 분석</h2>
-                  <p>{state.industry || "산업 미입력"} · {state.purpose} · {state.period}</p>
+                  <p>{getExecutiveRole(state.role).label} · {state.industry || "산업 미입력"} · {state.purpose} · {state.period}</p>
                 </div>
                 <div className="report-score">
                   <strong>{scoreAverage}</strong>
@@ -1418,8 +2342,8 @@ function App() {
 
               <div className="report-grid">
                 <article>
-                  <strong>핵심 판단</strong>
-                  <p>우선 개선축은 {biggestGap.label}입니다. 경쟁사 평균 대비 {biggestGap.gap}점 차이를 줄이는 실행 과제가 필요합니다.</p>
+                  <strong>{executiveSummary.roleLanguage.question}</strong>
+                  <p>{executiveSummary.roleLanguage.reportTone} 우선 개선축은 {biggestGap.label}입니다.</p>
                 </article>
                 <article>
                   <strong>SCM 리스크</strong>
@@ -1445,9 +2369,39 @@ function App() {
               </div>
 
               <div className="report-section">
+                <h3>경쟁사 비교표</h3>
+                <div className="meeting-table competitor-meeting-table">
+                  <div><strong>회사</strong><strong>포지션</strong><strong>관찰 메모</strong></div>
+                  {(validCompetitors.length ? validCompetitors : [{ name: "경쟁사 미입력", position: "-", note: "-" }]).map((competitor, index) => (
+                    <div key={`${competitor.name}-${index}`}><span>{competitor.name || "-"}</span><span>{competitor.position || "-"}</span><span>{competitor.note || "-"}</span></div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="report-section">
                 <h3>TOWS 전략 초안</h3>
                 <div className="strategy-grid compact">
-                  {tows.map(([label, text]) => <article key={label}><strong>{label}</strong><p>{text}</p></article>)}
+                  {tows.map((strategy) => <article key={strategy.label}><strong>{strategy.label} · {strategy.name}</strong><p>{strategy.logic}</p></article>)}
+                </div>
+              </div>
+
+              <div className="report-section">
+                <h3>부서별 실행 KPI</h3>
+                <div className="meeting-table department-kpi-table">
+                  <div><strong>부서</strong><strong>실행 과제</strong><strong>KPI</strong><strong>기한</strong></div>
+                  {departmentPlans.map((plan) => (
+                    <div key={plan.department}><span>{plan.department}</span><span>{plan.task}</span><span>{plan.kpi}</span><span>{plan.due}</span></div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="report-section">
+                <h3>의사결정 안건</h3>
+                <div className="meeting-table agenda-table">
+                  <div><strong>안건</strong><strong>오너</strong><strong>결정할 내용</strong></div>
+                  {decisionAgendas.map((agenda) => (
+                    <div key={agenda.title}><span>{agenda.title}</span><span>{agenda.owner}</span><span>{agenda.decision}</span></div>
+                  ))}
                 </div>
               </div>
 
@@ -1474,8 +2428,8 @@ function Panel({ eyebrow, title, action, children }: { eyebrow: string; title: s
   return <section className="panel active"><div className="section-heading"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div>{action}</div>{children}</section>;
 }
 
-function EditableList<T>({ title, addLabel, rows, onAdd, onRemove, children }: { title: string; addLabel: string; rows: T[]; onAdd: () => void; onRemove: (index: number) => void; children: (row: T, index: number) => ReactNode }) {
-  return <div className="editable-list"><div className="list-heading"><h3>{title}</h3><button className="primary" type="button" onClick={onAdd}><Plus size={17} />{addLabel}</button></div>{rows.map((row, index) => <div className="row-card" key={index}>{children(row, index)}<button className="delete" type="button" onClick={() => onRemove(index)} aria-label={`${title} 삭제`}><Trash2 size={17} /></button></div>)}</div>;
+function EditableList<T>({ title, addLabel, rows, onAdd, onRemove, children, className = "", rowId, rowClassName }: { title: string; addLabel: string; rows: T[]; onAdd: () => void; onRemove: (index: number) => void; children: (row: T, index: number) => ReactNode; className?: string; rowId?: (row: T, index: number) => string; rowClassName?: (row: T, index: number) => string }) {
+  return <div className={`editable-list ${className}`}><div className="list-heading"><h3>{title}</h3><button className="primary" type="button" onClick={onAdd}><Plus size={17} />{addLabel}</button></div>{rows.map((row, index) => <div className={`row-card ${rowClassName?.(row, index) || ""}`} id={rowId?.(row, index)} key={index}>{children(row, index)}<button className="delete" type="button" onClick={() => onRemove(index)} aria-label={`${title} 삭제`}><Trash2 size={17} /></button></div>)}</div>;
 }
 
 createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);
