@@ -661,13 +661,13 @@ const sampleState: AppState = {
 const researchProfiles: ResearchProfile[] = [
   {
     label: "배터리팩·BMS",
-    keywords: ["이랜텍", "배터리팩", "배터리 팩", "bms", "ess", "전동공구", "로봇배터리", "모빌리티 배터리", "배터리 모듈", "2차전지 팩"],
+    keywords: ["배터리팩", "배터리 팩", "bms", "ess", "전동공구", "로봇배터리", "모빌리티 배터리", "배터리 모듈", "2차전지 팩"],
     competitors: [
-      { name: "아이티엠반도체", position: "소형 IT·전자담배 배터리팩/보호회로(PMP)", note: "배터리 보호회로 핵심 부품인 PMP 기술력을 바탕으로 스마트폰 및 KT&G·필립모리스 등 글로벌 전자담배 기기 배터리팩·ODM 시장에서 이랜텍과 직접 수주 경쟁 관계이며, 최근 전장·로봇용 배터리팩으로도 영역을 확장 중입니다" },
-      { name: "상신이디피", position: "배터리 캔·케이스 등 팩 구조물", note: "삼성SDI 핵심 벤더로 스마트폰용 소형 배터리 용기 및 EV/ESS용 중대형 캔을 공급하며, 이랜텍의 배터리팩·모듈 조립 영역과 셀 보호용 케이스·정밀 부품 가공 영역에서 강한 경쟁 관계를 형성합니다" },
-      { name: "신흥에스이씨", position: "배터리 팩·모듈·캡 어셈블리(Cap Ass'y)", note: "배터리 셀 안전을 담당하는 캡 어셈블리·스트립 제조가 주력이지만 ESS·전동공구·소형 모빌리티용 배터리 모듈/팩 사업도 영위해 이랜텍의 ESS·e-Mobility 중대형 배터리팩/모듈 시장과 밸류체인상 직접 비교가 가능합니다" },
-      { name: "알루코", position: "중대형 배터리 모듈 케이스·ESS 팩 하우징", note: "알루미늄 압출 기술로 전기차·대형 ESS용 배터리 팩 하우징과 모듈 케이스를 공급하며, 이랜텍이 LG에너지솔루션을 통한 글로벌 완성차향 전기이륜차 배터리팩·중대형 ESS팩으로 포트폴리오를 다변화함에 따라 중대형 배터리 기구물·하우징 시장에서 경쟁 구도를 형성합니다" },
-      { name: "넥스콘테크놀러지", position: "소형 IT·e-Mobility 배터리 보호회로(BMS)·팩", note: "노트북·스마트폰용 배터리 보호회로와 팩 조립이 주력이며, 최근 전기자전거·전동킥보드 등 e-Mobility 및 소형 ESS용 배터리팩/BMS 개발에 집중해 이랜텍의 신성장 동력 부문과 타깃 시장이 상당 부분 겹치는 동종 업계 경쟁사입니다" },
+      { name: "아이티엠반도체", position: "소형 IT·전자담배 배터리팩/보호회로(PMP)", note: "배터리 보호회로 핵심 부품인 PMP 기술력을 바탕으로 스마트폰 및 KT&G·필립모리스 등 글로벌 전자담배 기기 배터리팩·ODM 시장에서 당사와 직접 수주 경쟁 관계이며, 최근 전장·로봇용 배터리팩으로도 영역을 확장 중입니다" },
+      { name: "상신이디피", position: "배터리 캔·케이스 등 팩 구조물", note: "삼성SDI 핵심 벤더로 스마트폰용 소형 배터리 용기 및 EV/ESS용 중대형 캔을 공급하며, 당사의 배터리팩·모듈 조립 영역과 셀 보호용 케이스·정밀 부품 가공 영역에서 강한 경쟁 관계를 형성합니다" },
+      { name: "신흥에스이씨", position: "배터리 팩·모듈·캡 어셈블리(Cap Ass'y)", note: "배터리 셀 안전을 담당하는 캡 어셈블리·스트립 제조가 주력이지만 ESS·전동공구·소형 모빌리티용 배터리 모듈/팩 사업도 영위해 당사의 ESS·e-Mobility 중대형 배터리팩/모듈 시장과 밸류체인상 직접 비교가 가능합니다" },
+      { name: "알루코", position: "중대형 배터리 모듈 케이스·ESS 팩 하우징", note: "알루미늄 압출 기술로 전기차·대형 ESS용 배터리 팩 하우징과 모듈 케이스를 공급하며, 중대형 배터리 기구물·하우징 시장에서 경쟁 구도를 형성합니다" },
+      { name: "넥스콘테크놀러지", position: "소형 IT·e-Mobility 배터리 보호회로(BMS)·팩", note: "노트북·스마트폰용 배터리 보호회로와 팩 조립이 주력이며, 최근 전기자전거·전동킥보드 등 e-Mobility 및 소형 ESS용 배터리팩/BMS 개발에 집중해 당사의 신성장 동력 부문과 타깃 시장이 상당 부분 겹치는 동종 업계 경쟁사입니다" },
     ],
     peerScores: { strategy: 7, profit: 7, scm: 7, market: 7, operation: 8, finance: 7 },
   },
@@ -697,14 +697,14 @@ const researchProfiles: ResearchProfile[] = [
   },
   {
     label: "태양광 인버터·전력변환",
-    keywords: ["동양이엔피", "태양광", "태양광 인버터", "pv inverter", "solar inverter", "인버터", "pcs", "ess용 pcs", "전력변환", "신재생", "스마트그리드"],
+    keywords: ["태양광", "태양광 인버터", "pv inverter", "solar inverter", "인버터", "pcs", "ess용 pcs", "전력변환", "신재생", "스마트그리드"],
     requiredKeywordGroups: [["태양광", "pv", "solar", "신재생"], ["인버터", "pcs", "전력변환"]],
     negativeKeywords: ["스마트폰", "반도체", "디스플레이", "생활가전", "자동차부품"],
     tags: ["태양광", "인버터", "PV", "PCS", "전력변환", "ESS"],
     competitors: [
-      { name: "효성중공업", position: "대용량 태양광 인버터·전력기기", tags: ["태양광", "인버터", "대용량", "전력기기", "공공프로젝트", "A/S", "직접경쟁"], directness: "direct", note: "국내 태양광 인버터 기업군에서 대용량 시장에 참여하는 핵심 플레이어로, 공공·대규모 프로젝트의 인증·납기·A/S·레퍼런스 기준에서 동양이엔피와 직접 비교 가능" },
+      { name: "효성중공업", position: "대용량 태양광 인버터·전력기기", tags: ["태양광", "인버터", "대용량", "전력기기", "공공프로젝트", "A/S", "직접경쟁"], directness: "direct", note: "국내 태양광 인버터 기업군에서 대용량 시장에 참여하는 핵심 플레이어로, 공공·대규모 프로젝트의 인증·납기·A/S·레퍼런스 기준에서 당사와 직접 비교 가능" },
       { name: "OCI파워", position: "대용량 태양광 인버터·발전 프로젝트", tags: ["태양광", "인버터", "대용량", "발전사업", "프로젝트", "공공조달", "직접경쟁"], directness: "direct", note: "국내 대용량 태양광 인버터 보급에 나서는 주요 업체로, 발전사업 고객과 프로젝트형 수요 대응력 측면에서 직접 경쟁 가능" },
-      { name: "다쓰테크", position: "태양광 인버터 전문", tags: ["태양광", "인버터", "대용량", "PV", "전력변환", "국내전문기업", "직접경쟁"], directness: "direct", note: "국내 태양광 인버터 대표 전문기업 중 하나로 스트링·센트럴 인버터와 대용량 발전소 시장 대응 역량을 보유해 동양이엔피의 태양광 인버터 사업과 직접 비교 가능" },
+      { name: "다쓰테크", position: "태양광 인버터 전문", tags: ["태양광", "인버터", "대용량", "PV", "전력변환", "국내전문기업", "직접경쟁"], directness: "direct", note: "국내 태양광 인버터 대표 전문기업 중 하나로 스트링·센트럴 인버터와 대용량 발전소 시장 대응 역량을 보유해 당사의 태양광 인버터 사업과 직접 비교 가능" },
       { name: "윌링스", position: "태양광 인버터·ESS PCS", tags: ["태양광", "인버터", "ESS", "PCS", "새만금", "프로젝트", "전력변환", "직접경쟁"], directness: "direct", note: "태양광 발전용 인버터와 ESS용 PCS 공급 실적 및 대형 프로젝트 수주 사례가 있어 프로젝트 레퍼런스, 효율, 납기 대응력 비교 가능" },
       { name: "신성이엔지", position: "태양광 인버터·설치형 신재생 솔루션", tags: ["태양광", "인버터", "설치형", "사업용", "신재생", "프로젝트", "직접경쟁"], directness: "direct", note: "국내 태양광 인버터 시장 참여 기업으로 설치형·사업용 수요에서 겹치며 가격, 효율, 레퍼런스, 공공조달 대응력 비교가 필요" },
     ],
@@ -712,37 +712,37 @@ const researchProfiles: ResearchProfile[] = [
   },
   {
     label: "스마트폰 쉴드캔·메탈케이스·광학부품",
-    keywords: ["성우전자", "성우전자 쉴드캔", "스마트폰 렌즈 쉴드", "렌즈 쉴드", "렌즈쉴드", "쉴드캔", "shield can", "metal case", "메탈 케이스", "메탈케이스", "deco", "금속 외장", "스마트폰 금속부품", "휴대폰 금속부품", "vcm", "셔터", "광학기기 부품", "카메라 렌즈 부품", "스마트폰 내장 부품"],
+    keywords: ["스마트폰 렌즈 쉴드", "렌즈 쉴드", "렌즈쉴드", "쉴드캔", "shield can", "metal case", "메탈 케이스", "메탈케이스", "deco", "금속 외장", "스마트폰 금속부품", "휴대폰 금속부품", "vcm", "셔터", "광학기기 부품", "카메라 렌즈 부품", "스마트폰 내장 부품"],
     requiredKeywordGroups: [["쉴드캔", "shield can", "렌즈쉴드", "렌즈 쉴드", "metal case", "메탈케이스", "메탈 케이스", "deco"], ["스마트폰", "휴대폰", "삼성전자", "세트업체", "카메라", "광학", "vcm", "셔터"]],
     negativeKeywords: ["터치스크린", "touch screen", "pba", "pcb", "태양광", "전자담배", "배터리팩", "자동차부품"],
     tags: ["스마트폰", "쉴드캔", "Shield Can", "메탈케이스", "렌즈쉴드", "VCM", "셔터", "광학부품", "카메라모듈", "프레스", "정밀가공", "금속부품", "삼성전자", "세트업체"],
     competitors: [
-      { name: "에스코넥", position: "스마트폰 쉴드캔·금속부품", tags: ["쉴드캔", "스마트폰", "삼성전자", "금속부품", "프레스", "직접경쟁"], directness: "direct", note: "성우전자 쉴드캔의 삼성전자 물량을 공급하는 경쟁사로 직접 언급되며, 전자파 차폐용 쉴드캔과 금속 정밀부품에서 제품·고객 중복성이 가장 높습니다" },
-      { name: "원진", position: "쉴드캔 대체 공급처·금속 정밀부품", tags: ["쉴드캔", "대체공급", "스마트폰", "금속부품", "직접경쟁"], directness: "direct", note: "에스코넥과 함께 성우전자의 쉴드캔 대체 공급처로 언급되어 삼성전자 1차 협력망 내 직접 경쟁 가능성이 큽니다" },
-      { name: "파트론", position: "스마트폰 부품·메탈/광학 모듈", tags: ["스마트폰", "카메라모듈", "광학부품", "메탈", "삼성전자", "확장경쟁"], directness: "adjacent", note: "스마트폰 부품 대형 공급사로 메탈 케이스, 광학부품, 모듈 영역에서 성우전자와 고객군이 겹쳐 확장 경쟁사로 비교할 수 있습니다" },
-      { name: "해성옵틱스", position: "카메라 모듈·광학 부품", tags: ["카메라모듈", "광학부품", "렌즈", "VCM", "스마트폰", "확장경쟁"], directness: "adjacent", note: "카메라 모듈과 광학 부품 기반 기업으로 성우전자의 VCM, 셔터 등 영상·광학기기 부문과 연결됩니다" },
+      { name: "에스코넥", position: "스마트폰 쉴드캔·금속부품", tags: ["쉴드캔", "스마트폰", "삼성전자", "금속부품", "프레스", "직접경쟁"], directness: "direct", note: "쉴드캔의 삼성전자 물량을 공급하는 경쟁사로 언급되며, 전자파 차폐용 쉴드캔과 금속 정밀부품에서 제품·고객 중복성이 가장 높습니다" },
+      { name: "원진", position: "쉴드캔 대체 공급처·금속 정밀부품", tags: ["쉴드캔", "대체공급", "스마트폰", "금속부품", "직접경쟁"], directness: "direct", note: "에스코넥과 함께 쉴드캔 대체 공급처로 언급되어 삼성전자 1차 협력망 내 직접 경쟁 가능성이 큽니다" },
+      { name: "파트론", position: "스마트폰 부품·메탈/광학 모듈", tags: ["스마트폰", "카메라모듈", "광학부품", "메탈", "삼성전자", "확장경쟁"], directness: "adjacent", note: "스마트폰 부품 대형 공급사로 메탈 케이스, 광학부품, 모듈 영역에서 당사와 고객군이 겹쳐 확장 경쟁사로 비교할 수 있습니다" },
+      { name: "해성옵틱스", position: "카메라 모듈·광학 부품", tags: ["카메라모듈", "광학부품", "렌즈", "VCM", "스마트폰", "확장경쟁"], directness: "adjacent", note: "카메라 모듈과 광학 부품 기반 기업으로 당사의 VCM, 셔터 등 영상·광학기기 부문과 연결됩니다" },
       { name: "엠씨넥스", position: "스마트폰 카메라 모듈·광학부품", tags: ["카메라모듈", "광학부품", "렌즈", "스마트폰", "삼성전자", "확장경쟁"], directness: "adjacent", note: "스마트폰 카메라 모듈과 광학 부품 역량이 강해 렌즈·카메라 주변 부품군에서 경쟁 가능성이 높습니다" },
     ],
     peerScores: { strategy: 7, profit: 7, scm: 8, market: 8, operation: 8, finance: 7 },
   },
   {
     label: "터치스크린·터치모듈",
-    keywords: ["에스제이아이 터치스크린", "sji touch", "터치스크린", "touch screen", "touch screen panel", "tsp", "터치패널", "터치 패널", "터치모듈", "터치 모듈", "정전용량", "저항막", "gff", "ito", "oca", "강화유리", "산업용 hmi", "hmi", "특수용 터치"],
+    keywords: ["터치스크린", "touch screen", "touch screen panel", "tsp", "터치패널", "터치 패널", "터치모듈", "터치 모듈", "정전용량", "저항막", "gff", "ito", "oca", "강화유리", "산업용 hmi", "hmi", "특수용 터치"],
     requiredKeywordGroups: [["터치스크린", "touch screen", "touch screen panel", "tsp", "터치패널", "터치모듈"], ["gff", "ito", "oca", "강화유리", "정전용량", "저항막", "hmi", "산업용", "특수용", "양산"]],
     negativeKeywords: ["pba", "pcb assembly", "인쇄회로기판", "배터리팩", "태양광", "전자담배", "반도체 장비"],
     tags: ["터치스크린", "터치패널", "터치모듈", "TSP", "GFF", "ITO", "OCA", "강화유리", "산업용", "HMI", "세트업체", "양산"],
     competitors: [
-      { name: "에스맥", position: "터치스크린 패널·모듈", tags: ["터치스크린", "터치패널", "TSP", "삼성전자", "양산", "직접경쟁"], directness: "direct", note: "국내 터치스크린 관련 대표 업체로 반복 언급되며 삼성전자 납품 계열 경쟁군에 속해, SJI의 터치스크린 패널·모듈 사업과 제품 중복성이 높습니다" },
+      { name: "에스맥", position: "터치스크린 패널·모듈", tags: ["터치스크린", "터치패널", "TSP", "삼성전자", "양산", "직접경쟁"], directness: "direct", note: "국내 터치스크린 관련 대표 업체로 반복 언급되며 삼성전자 납품 계열 경쟁군에 속해, 당사의 터치스크린 패널·모듈 사업과 제품 중복성이 높습니다" },
       { name: "시노펙스", position: "ITO 필름·터치스크린", tags: ["터치스크린", "ITO", "필름", "터치패널", "직접경쟁"], directness: "direct", note: "ITO 필름과 터치스크린 사업으로 알려진 국내 터치패널 경쟁군의 핵심 플레이어로, 소재·패널 공정과 고객 대응력 비교가 가능합니다" },
-      { name: "미성포리테크", position: "터치스크린 양산·납품", tags: ["터치스크린", "터치패널", "양산", "납품", "직접경쟁"], directness: "direct", note: "터치스크린 양산 및 납품 사례가 언급되어 SJI와 같은 제조형 경쟁을 하며 단가, 수율, 납기 안정성 비교에 적합합니다" },
-      { name: "디지텍시스템즈", position: "강화유리·OCA·터치패널", tags: ["터치패널", "강화유리", "OCA", "핵심공정", "직접경쟁"], directness: "direct", note: "강화유리·OCA·터치패널 축으로 경쟁하며 터치스크린 핵심 공정 측면에서 SJI의 제품 포트폴리오와 겹칩니다" },
+      { name: "미성포리테크", position: "터치스크린 양산·납품", tags: ["터치스크린", "터치패널", "양산", "납품", "직접경쟁"], directness: "direct", note: "터치스크린 양산 및 납품 사례가 언급되어 당사와 같은 제조형 경쟁을 하며 단가, 수율, 납기 안정성 비교에 적합합니다" },
+      { name: "디지텍시스템즈", position: "강화유리·OCA·터치패널", tags: ["터치패널", "강화유리", "OCA", "핵심공정", "직접경쟁"], directness: "direct", note: "강화유리·OCA·터치패널 축으로 경쟁하며 터치스크린 핵심 공정 측면에서 당사의 제품 포트폴리오와 겹칩니다" },
       { name: "이엘케이", position: "세트업체 대응형 터치패널", tags: ["터치패널", "LG전자", "세트업체", "양산", "직접경쟁"], directness: "direct", note: "LG전자 납품 업체로 언급되며 세트업체 대응형 터치패널 경쟁사로 볼 수 있어 고객 인증, 납기, 양산 안정성 비교에 적합합니다" },
     ],
     peerScores: { strategy: 7, profit: 6, scm: 8, market: 7, operation: 8, finance: 6 },
   },
   {
     label: "PBA·PCB 어셈블리",
-    keywords: ["에스제이아이", "pba", "pcb", "pcb assembly", "인쇄회로기판", "어셈블리", "전자부품 조립", "ems"],
+    keywords: ["pba", "pcb", "pcb assembly", "인쇄회로기판", "어셈블리", "전자부품 조립", "ems"],
     requiredKeywordGroups: [["pba", "pcb", "인쇄회로기판", "assembly", "어셈블리", "ems"], ["전자부품", "모듈", "조립", "실장"]],
     negativeKeywords: ["완성차", "식품", "화장품", "제약", "전자담배"],
     tags: ["PBA", "PCB", "EMS", "전자부품", "어셈블리", "모듈"],
@@ -793,7 +793,7 @@ const researchProfiles: ResearchProfile[] = [
   },
   {
     label: "음향부품·스피커",
-    keywords: ["이엠텍", "emtech", "em-tech", "스피커", "마이크로스피커", "음향부품", "음향", "이어폰", "헤드폰", "리시버", "마이크로폰", "mems마이크", "사운드 솔루션"],
+    keywords: ["스피커", "마이크로스피커", "음향부품", "음향", "이어폰", "헤드폰", "리시버", "마이크로폰", "mems마이크", "사운드 솔루션"],
     competitors: [
       { name: "비에스이", position: "마이크로스피커·MEMS 마이크로폰", note: "마이크로 스피커, MEMS 마이크로폰, 이어폰용 드라이버 등 음향부품 기반의 직접 경쟁사로 제품군·고객사 비교에 적합합니다" },
       { name: "에스텍", position: "스피커·이어폰 부품 제조", note: "스피커·이어폰·헤드폰 관련 부품을 자동차·TV·가전·휴대폰 시장에 공급하는 직접·인접 경쟁사로 응용처 다변화 비교에 적합합니다" },
@@ -805,7 +805,7 @@ const researchProfiles: ResearchProfile[] = [
   },
   {
     label: "전자담배·베이퍼라이저 부품",
-    keywords: ["전자담배", "베이프", "베이핑", "vape", "vaping", "무화기", "카트리지", "액상형", "히팅", "궐련형", "atomizer", "e-cigarette", "이엠텍"],
+    keywords: ["전자담배", "베이프", "베이핑", "vape", "vaping", "무화기", "카트리지", "액상형", "히팅", "궐련형", "atomizer", "e-cigarette"],
     requiredKeywordGroups: [["전자담배", "베이프", "vape", "e-cigarette", "무화기"], ["기기", "카트리지", "히팅", "atomizer", "odm", "부품"]],
     negativeKeywords: ["마이크로스피커", "음향", "스피커", "배터리팩", "태양광"],
     tags: ["전자담배", "베이퍼라이저", "무화", "카트리지", "히팅", "ODM"],
@@ -819,60 +819,6 @@ const researchProfiles: ResearchProfile[] = [
     peerScores: { strategy: 8, profit: 7, scm: 8, market: 7, operation: 8, finance: 7 },
   },
 ];
-
-const solarInverterComparisonRows = [
-  {
-    company: "동양이엔피",
-    role: "당사",
-    capacity: "설치형·대용량 수요 확대 단계",
-    customers: "국내 태양광 설치형 수요, 에너지 인프라 신사업 고객",
-    priceEfficiency: "전원공급·전력변환 제조 역량 기반. 가격·효율은 프로젝트 레퍼런스 축적으로 검증 필요",
-    references: "태양광 인버터를 신성장 사업으로 확대 중. 공공·대형 프로젝트 인증, 납기, A/S 레퍼런스 확보가 핵심",
-  },
-  {
-    company: "효성중공업",
-    role: "직접 경쟁사",
-    capacity: "대용량·계통연계 프로젝트 중심",
-    customers: "공공·민간 대규모 발전 프로젝트, 전력 인프라 고객",
-    priceEfficiency: "대형 전력기기 기반의 신뢰성·A/S 강점. 가격보다는 인증, 납기, 운영 안정성 비교 필요",
-    references: "국내 태양광 인버터 대용량 시장 참여 핵심 플레이어로 반복 언급",
-  },
-  {
-    company: "OCI파워",
-    role: "직접 경쟁사",
-    capacity: "대용량 태양광 인버터 보급 영역",
-    customers: "발전사업자, 대형 태양광 프로젝트 발주처",
-    priceEfficiency: "프로젝트형 가격 제안력과 발전사업 이해도가 비교 포인트. 효율·보증 조건 확인 필요",
-    references: "국내 대용량 태양광 인버터 보급 주요 업체로 언급",
-  },
-  {
-    company: "다쓰테크",
-    role: "직접 경쟁사",
-    capacity: "스트링·센트럴·대용량 발전소 대응",
-    customers: "국내 발전소, 상업용·공공 태양광 프로젝트",
-    priceEfficiency: "전문기업형 가격 경쟁력, 제품 라인업, 변환 효율, A/S 대응력이 비교 기준",
-    references: "국내 태양광 인버터 대표 전문기업군으로 분류",
-  },
-  {
-    company: "윌링스",
-    role: "직접 경쟁사",
-    capacity: "태양광 인버터와 ESS PCS, 프로젝트형 수요",
-    customers: "대형 태양광·ESS 프로젝트, 발전사업 고객",
-    priceEfficiency: "PCS 연계, 효율, 납기, 프로젝트 수행 경험이 비교 포인트",
-    references: "새만금 등 대형 프로젝트 수주 사례가 있어 레퍼런스 경쟁력이 강함",
-  },
-  {
-    company: "신성이엔지",
-    role: "직접 경쟁사",
-    capacity: "설치형·사업용 태양광 수요",
-    customers: "국내 신재생 설치형 고객, 사업용 태양광 프로젝트",
-    priceEfficiency: "설치형 수요 대응 가격, 효율, 채널·시공 연계력이 비교 포인트",
-    references: "국내 태양광 인버터 시장 참여 기업으로 반복 언급",
-  },
-];
-
-// 이 비교표는 "당사" 행이 동양이엔피로 고정된 전용 표이므로 해당 회사를 분석할 때만 노출한다.
-const solarInverterOwnCompany = solarInverterComparisonRows.find((row) => row.role === "당사")?.company || "";
 
 const defaultResearchProfile: ResearchProfile = {
   label: "일반 제조·서비스",
@@ -1730,8 +1676,6 @@ function App() {
   const scmRiskSummary = useMemo(() => buildScmRiskSummary(state.suppliers), [state.suppliers]);
   const highRiskSuppliers = scmRiskSummary.highRiskNodes;
   const validActions = state.actions.filter((action) => action.task || action.owner || action.kpi || action.due);
-  const showSolarInverterComparison = researchProfile.label === "태양광 인버터·전력변환"
-    && normalizeCompanyName(state.companyName) === normalizeCompanyName(solarInverterOwnCompany);
   const validCompetitors = useMemo(() => state.competitors.filter((competitor) => competitor.name.trim()), [state.competitors]);
   const competitorAxisScores = useMemo(() => buildCompetitorAxisScores(researchProfile, validCompetitors, state.companyName, state.industry), [researchProfile, state.companyName, state.industry, validCompetitors]);
   const axisDetails = useMemo(() => buildAxisDetails(state, researchProfile, competitorAxisScores, state.liveCompetitors), [competitorAxisScores, researchProfile, state.liveCompetitors, state.scores]);
@@ -2115,32 +2059,6 @@ function App() {
                       <em>{candidate.source}</em>
                     </article>
                   ))}
-                </div>
-              )}
-              {showSolarInverterComparison && (
-                <div className="solar-comparison-panel">
-                  <div className="candidate-heading">
-                    <strong>동양이엔피 vs 태양광 인버터 직접 경쟁사</strong>
-                    <span>용량대 · 고객군 · 가격/효율 · 레퍼런스 비교</span>
-                  </div>
-                  <div className="solar-comparison-table" role="table" aria-label="동양이엔피 태양광 인버터 경쟁사 비교표">
-                    <div className="solar-comparison-head" role="row">
-                      <span>기업</span>
-                      <span>용량대</span>
-                      <span>고객군</span>
-                      <span>가격/효율</span>
-                      <span>레퍼런스</span>
-                    </div>
-                    {solarInverterComparisonRows.map((row) => (
-                      <article className={row.role === "당사" ? "solar-comparison-row own" : "solar-comparison-row"} key={row.company} role="row">
-                        <div><strong>{row.company}</strong><small>{row.role}</small></div>
-                        <span>{row.capacity}</span>
-                        <span>{row.customers}</span>
-                        <span>{row.priceEfficiency}</span>
-                        <span>{row.references}</span>
-                      </article>
-                    ))}
-                  </div>
                 </div>
               )}
               {state.liveCompetitors.length > 0 && (
