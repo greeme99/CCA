@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { Background, Controls, Handle, MarkerType, Position, ReactFlow, type Edge, type Node, type NodeTypes } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { BarChart3, ClipboardList, Download, ExternalLink, Factory, FileText, Network, PanelLeftClose, PanelLeftOpen, Plus, Printer, RefreshCw, Search, ShieldCheck, Target, Trash2, TrendingUp, Users, Wand2 } from "lucide-react";
+import { normalizeCompanyName, shouldAutoRefreshCompetitors } from "./competitors";
 import "./styles.css";
 
 type AxisKey = "strategy" | "profit" | "scm" | "market" | "operation" | "finance";
@@ -67,6 +68,8 @@ type AppState = {
   liveCompetitors: LiveCompany[];
   competitorCandidates: CompetitorCandidate[];
   researchStatus: string;
+  /** 경쟁사 목록이 앱 자동 생성물인지(true) 사용자가 편집했는지(false). 자동 갱신이 사용자 입력을 덮어쓰지 않도록 구분한다. */
+  competitorsAuto: boolean;
 };
 
 const appName = "CCA(기업경쟁력분석)";
@@ -596,6 +599,7 @@ const defaultState: AppState = {
   liveCompetitors: [],
   competitorCandidates: [],
   researchStatus: "",
+  competitorsAuto: false,
 };
 
 const sampleState: AppState = {
@@ -650,6 +654,7 @@ const sampleState: AppState = {
   liveCompetitors: [],
   competitorCandidates: [],
   researchStatus: "",
+  competitorsAuto: false,
 };
 
 const researchProfiles: ResearchProfile[] = [
@@ -877,7 +882,6 @@ const defaultResearchProfile: ResearchProfile = {
   ],
   peerScores: { strategy: 7, profit: 7, scm: 7, market: 7, operation: 7, finance: 7 },
 };
-const legacyGenericCompetitorNames = new Set(["상장 동종업계 1위", "고성장 비상장사", "원가 경쟁사", "기술 차별화 기업", "대체재 기업"]);
 const defaultGenericCompetitorNames = new Set(defaultResearchProfile.competitors.map((competitor) => competitor.name));
 
 const researchSites = [
@@ -895,12 +899,6 @@ const avg = (values: number[]) => values.reduce((sum, value) => sum + value, 0) 
 const firstLine = (value: string, fallback: string) => value.split("\n").map((line) => line.trim()).filter(Boolean)[0] || fallback;
 const splitLines = (value: string) => value.split("\n").map((line) => line.trim()).filter(Boolean);
 const fallback = (value: string, label: string) => value.trim() || label;
-const normalizeCompanyName = (value: string) =>
-  value
-    .toLowerCase()
-    .replace(/주식회사|유한회사|합자회사|합명회사|재단법인|사단법인/g, "")
-    .replace(/[()\[\]\s㈜.]/g, "");
-
 const normalizeBusinessText = (value: string) =>
   value
     .toLowerCase()
@@ -1231,21 +1229,15 @@ function buildCandidates(
     .map((item, index) => buildCandidate(item.competitor, index, companyName, industry, source, item.liveCompany, ownCompany, item.fit));
 }
 
-function hasLegacyGenericNames(rows: Array<{ name: string }>) {
-  return rows.some((row) => legacyGenericCompetitorNames.has(row.name.trim()));
-}
-
-function shouldRefreshGeneratedCompetitors(rows: Array<{ name: string; position?: string; industryField?: string }>, profile: ResearchProfile) {
-  if (!rows.length || profile === defaultResearchProfile) return false;
-
-  const profileNames = new Set(profile.competitors.map((competitor) => normalizeCompanyName(competitor.name)));
-  const allNamesAlreadyCurrent = rows.every((row) => profileNames.has(normalizeCompanyName(row.name)));
-  if (allNamesAlreadyCurrent) return false;
-  if (rows.some((row) => defaultGenericCompetitorNames.has(row.name.trim()))) return true;
-
-  const profilePositions = new Set(profile.competitors.map((competitor) => competitor.position));
-  const positionMatches = rows.filter((row) => profilePositions.has(row.position || row.industryField || "")).length;
-  return positionMatches >= Math.min(3, rows.length);
+function needsCompetitorRefresh(competitors: Array<{ name: string }>, candidates: Array<{ name: string }>, profile: ResearchProfile, competitorsAuto: boolean) {
+  return shouldAutoRefreshCompetitors({
+    competitors,
+    candidates,
+    profile,
+    isDefaultProfile: profile === defaultResearchProfile,
+    competitorsAuto,
+    placeholderNames: defaultGenericCompetitorNames,
+  });
 }
 
 function isCompanyNameMatch(targetName: string, corpName: string) {
@@ -1404,9 +1396,12 @@ function sanitizeResearchStatus(status?: string) {
 function hydrateState(saved: Partial<AppState>): AppState {
   const profile = getResearchProfile(saved.companyName || "", saved.industry || "");
   const savedCompetitors = saved.competitors?.length ? saved.competitors : clone(defaultState.competitors);
-  const competitors = hasLegacyGenericNames(savedCompetitors) || shouldRefreshGeneratedCompetitors(savedCompetitors, profile) ? clone(profile.competitors) : savedCompetitors;
   const savedCandidates = saved.competitorCandidates || [];
-  const competitorCandidates = hasLegacyGenericNames(savedCandidates) || shouldRefreshGeneratedCompetitors(savedCandidates, profile)
+  // 저장 데이터에 출처 표시가 없으면 사용자 입력으로 간주해 덮어쓰지 않는다.
+  const savedCompetitorsAuto = saved.competitorsAuto ?? false;
+  const needsRefresh = needsCompetitorRefresh(savedCompetitors, savedCandidates, profile, savedCompetitorsAuto);
+  const competitors = needsRefresh ? clone(profile.competitors) : savedCompetitors;
+  const competitorCandidates = needsRefresh
     ? buildCandidates(profile.competitors, saved.companyName || "", saved.industry || "", "업종 키워드")
     : savedCandidates;
 
@@ -1422,6 +1417,7 @@ function hydrateState(saved: Partial<AppState>): AppState {
     liveCompetitors: saved.liveCompetitors || [],
     competitorCandidates,
     researchStatus: sanitizeResearchStatus(saved.researchStatus),
+    competitorsAuto: needsRefresh ? true : savedCompetitorsAuto,
   };
 }
 
@@ -1763,28 +1759,24 @@ function App() {
   }, [researchProfile, state.companyName, state.industry, validCompetitors]);
 
   useEffect(() => {
-    if (
-      !hasLegacyGenericNames(state.competitors)
-      && !hasLegacyGenericNames(state.competitorCandidates)
-      && !shouldRefreshGeneratedCompetitors(state.competitors, researchProfile)
-      && !shouldRefreshGeneratedCompetitors(state.competitorCandidates, researchProfile)
-    ) return;
+    if (!needsCompetitorRefresh(state.competitors, state.competitorCandidates, researchProfile, state.competitorsAuto)) return;
 
     setState((current) => {
       const profile = getResearchProfile(current.companyName, current.industry);
       return {
         ...current,
-        competitors: hasLegacyGenericNames(current.competitors) || shouldRefreshGeneratedCompetitors(current.competitors, profile) ? profile.competitors : current.competitors,
+        competitors: profile.competitors,
+        competitorsAuto: true,
         liveCompetitors: [],
         competitorCandidates: buildCandidates(profile.competitors, current.companyName, current.industry, "업종 키워드"),
         researchStatus: `${current.companyName || "우리회사"} 기준 Top5 경쟁사를 실제 회사명으로 다시 제안했습니다. DART 공시와 KOSIS 산업통계 관점의 비교 가능성을 기준으로 선정했습니다.`,
       };
     });
-  }, [researchProfile, state.companyName, state.competitors, state.competitorCandidates, state.industry]);
+  }, [researchProfile, state.companyName, state.competitors, state.competitorCandidates, state.competitorsAuto, state.industry]);
 
   const update = (patch: Partial<AppState>) => setState((current) => ({ ...current, ...patch }));
   const updateScore = (key: AxisKey, patch: Partial<Score>) => setState((current) => ({ ...current, scores: { ...current.scores, [key]: { ...current.scores[key], ...patch } } }));
-  const replaceCompetitor = (index: number, patch: Partial<Competitor>) => update({ competitors: state.competitors.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)) });
+  const replaceCompetitor = (index: number, patch: Partial<Competitor>) => update({ competitors: state.competitors.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)), competitorsAuto: false });
   const replaceSupplier = (index: number, patch: Partial<Supplier>) => update({ suppliers: state.suppliers.map((row, rowIndex) => (rowIndex === index ? hydrateSupplier({ ...row, ...patch }) : row)) });
   const replaceAction = (index: number, patch: Partial<Action>) => update({ actions: state.actions.map((row, rowIndex) => (rowIndex === index ? { ...row, ...patch } : row)) });
   const updateSwotItem = (category: SwotCategory, id: string, patch: Partial<SwotItem>) => setState((current) => ({
@@ -1870,6 +1862,7 @@ function App() {
       setState((current) => ({
         ...current,
         competitors: suggestedCompetitors,
+        competitorsAuto: true,
         liveCompetitors: [],
         competitorCandidates: buildCandidates(suggestedCompetitors, current.companyName, current.industry, "업종 키워드"),
         researchStatus: `${current.companyName || "우리회사"} 기준 Top5 경쟁사를 제안했습니다. 로컬 .env에 DART 키가 없어 업종 키워드와 KOSIS 산업통계 관점의 비교 가능성을 기준으로 선정했습니다.`,
@@ -1880,6 +1873,7 @@ function App() {
     setState((current) => ({
       ...current,
       competitors: suggestedCompetitors,
+      competitorsAuto: true,
       competitorCandidates: buildCandidates(suggestedCompetitors, current.companyName, current.industry, "업종 키워드"),
       liveCompetitors: [],
       researchStatus: isLocalHost
@@ -1910,6 +1904,7 @@ function App() {
       setState((current) => ({
         ...current,
         competitors: nextCompetitors,
+        competitorsAuto: true,
         liveCompetitors: liveCompanies,
         competitorCandidates: candidates,
         researchStatus: liveCompanies.length
@@ -1920,6 +1915,7 @@ function App() {
       setState((current) => ({
         ...current,
         competitors: suggestedCompetitors,
+        competitorsAuto: true,
         liveCompetitors: [],
         competitorCandidates: buildCandidates(suggestedCompetitors, current.companyName, current.industry, "업종 키워드"),
         researchStatus: `${error instanceof Error ? error.message : "실시간 조회 실패"} 현재는 ${current.companyName || "우리회사"} 기준 Top5 경쟁사를 업종 키워드와 DART/KOSIS 선정 기준에 맞춰 표시합니다.`,
@@ -1929,7 +1925,9 @@ function App() {
   const compareCompetitiveness = async () => {
     if (isComparing) return;
 
-    const baseCompetitors = validCompetitors.length && !shouldRefreshGeneratedCompetitors(validCompetitors, researchProfile) ? validCompetitors : researchProfile.competitors;
+    // 사용자가 입력·편집한 목록이 있으면 그대로 비교하고, 없을 때만 프로파일 목록으로 채운다.
+    const baseCompetitors = validCompetitors.length ? validCompetitors : researchProfile.competitors;
+    const baseCompetitorsAuto = validCompetitors.length ? state.competitorsAuto : true;
     const openDartKey = envOpenDartKey;
     const canUseDartData = !isLocalHost || Boolean(openDartKey);
 
@@ -1937,6 +1935,7 @@ function App() {
     setState((current) => ({
       ...current,
       competitors: baseCompetitors,
+      competitorsAuto: baseCompetitorsAuto,
       liveCompetitors: [],
       competitorCandidates: current.competitorCandidates.length
         ? current.competitorCandidates
@@ -1965,6 +1964,7 @@ function App() {
       setState((current) => ({
         ...current,
         competitors: nextCompetitors,
+        competitorsAuto: baseCompetitorsAuto,
         liveCompetitors: liveCompanies,
         competitorCandidates: buildCandidates(nextCompetitors, current.companyName, current.industry, canUseDartData ? "DART/KOSIS" : "업종 키워드", liveCompanies, ownCompany),
         scores: nextScores,
@@ -1993,6 +1993,7 @@ function App() {
       setState((current) => ({
         ...current,
         competitors: baseCompetitors,
+        competitorsAuto: baseCompetitorsAuto,
         competitorCandidates: buildCandidates(baseCompetitors, current.companyName, current.industry, "업종 키워드"),
         scores: nextScores,
         researchStatus: `${error instanceof Error ? error.message : "DART/KOSIS 비교 조회 실패"} KOSIS 업종 관점과 입력된 회사/경쟁사 정보로 6축 점수를 산정했습니다.`,
@@ -2155,7 +2156,7 @@ function App() {
                 ))}
               </div>
             </section>
-            <EditableList title="벤치마크 경쟁사" addLabel="경쟁사" rows={state.competitors} onAdd={() => update({ competitors: [...state.competitors, { name: "", position: "", note: "" }] })} onRemove={(index) => update({ competitors: state.competitors.filter((_, rowIndex) => rowIndex !== index) })}>
+            <EditableList title="벤치마크 경쟁사" addLabel="경쟁사" rows={state.competitors} onAdd={() => update({ competitors: [...state.competitors, { name: "", position: "", note: "" }], competitorsAuto: false })} onRemove={(index) => update({ competitors: state.competitors.filter((_, rowIndex) => rowIndex !== index), competitorsAuto: false })}>
               {(competitor, index) => <>
                 <label>회사명<input value={competitor.name} onChange={(event) => replaceCompetitor(index, { name: event.target.value })} placeholder="경쟁사명" /></label>
                 <label>포지션<input value={competitor.position} onChange={(event) => replaceCompetitor(index, { position: event.target.value })} placeholder="저가, 품질, 납기" /></label>
