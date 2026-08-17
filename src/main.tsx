@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { StrictMode, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Background, Controls, Handle, MarkerType, Position, ReactFlow, type Edge, type Node, type NodeTypes } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -955,16 +955,23 @@ function getSignalGroups(terms: string[]) {
     .map((group) => group.group);
 }
 
+// 적합도 계산은 경쟁사·축마다 이 함수를 호출하므로 같은 저장값을 반복 파싱하지 않도록 캐시한다.
+let learnedSignalCache: { raw: string | null; signals: LearnedCompetitorSignal[] } | null = null;
+
 function readLearnedCompetitorSignals(): LearnedCompetitorSignal[] {
   try {
     const raw = localStorage.getItem(learningStorageKey);
-    return raw ? JSON.parse(raw) as LearnedCompetitorSignal[] : [];
+    if (learnedSignalCache && learnedSignalCache.raw === raw) return learnedSignalCache.signals;
+    const signals = raw ? JSON.parse(raw) as LearnedCompetitorSignal[] : [];
+    learnedSignalCache = { raw, signals };
+    return signals;
   } catch {
     return [];
   }
 }
 
 function writeLearnedCompetitorSignals(signals: LearnedCompetitorSignal[]) {
+  learnedSignalCache = null;
   try {
     localStorage.setItem(learningStorageKey, JSON.stringify(signals.slice(-120)));
   } catch {
@@ -1601,7 +1608,7 @@ function buildDecisionAgendas(state: AppState, executiveSummary: ReturnType<type
   ];
 }
 
-function getExecutiveSummary(state: AppState, scoreAverage: number, biggestGap: { label: string; gap: number }, validCompetitors: Competitor[]) {
+function getExecutiveSummary(state: AppState, biggestGap: { label: string; gap: number }, validCompetitors: Competitor[]) {
   const role = getExecutiveRole(state.role);
   const competitorCount = validCompetitors.length || state.competitorCandidates.length || state.competitors.filter((competitor) => competitor.name.trim()).length;
   const priorityAxisLabels = role.primaryAxes.map((key) => axes.find((axis) => axis.key === key)?.label).filter(Boolean).join(" · ");
@@ -1713,12 +1720,30 @@ function App() {
     document.title = appName;
   }, []);
 
+  // 키 입력마다 동기 저장하면 입력이 밀리므로 마지막 변경 후 300ms에 한 번만 저장한다.
+  const latestState = useRef(state);
+  latestState.current = state;
+
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(state));
     setSaved(false);
-    const timer = window.setTimeout(() => setSaved(true), 300);
+    const timer = window.setTimeout(() => {
+      localStorage.setItem(storageKey, JSON.stringify(state));
+      setSaved(true);
+    }, 300);
     return () => window.clearTimeout(timer);
   }, [state]);
+
+  // 디바운스 대기 중에 탭을 닫아도 입력이 사라지지 않도록 이탈 시점에 즉시 저장한다.
+  useEffect(() => {
+    const flush = () => localStorage.setItem(storageKey, JSON.stringify(latestState.current));
+    const flushOnHide = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", flushOnHide);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", flushOnHide);
+    };
+  }, []);
 
   const scoreAverage = useMemo(() => weightedScore(state.scores, state.purpose, state.role), [state.purpose, state.role, state.scores]);
   const biggestGap = useMemo(
@@ -1726,9 +1751,9 @@ function App() {
     [state.scores],
   );
   const researchProfile = useMemo(() => getResearchProfile(state.companyName, state.industry), [state.companyName, state.industry]);
-  const tows = useMemo(() => buildTowsStrategies(state), [state]);
-  const swotDrafts = useMemo(() => buildSwotDrafts(state, researchProfile), [researchProfile, state]);
-  const swotCoachQuestions = useMemo(() => buildSwotCoachQuestions(state, researchProfile, biggestGap), [biggestGap, researchProfile, state]);
+  const tows = useMemo(() => buildTowsStrategies(state), [state.swot]);
+  const swotDrafts = useMemo(() => buildSwotDrafts(state, researchProfile), [researchProfile, state.companyName, state.competitors, state.industry, state.scores]);
+  const swotCoachQuestions = useMemo(() => buildSwotCoachQuestions(state, researchProfile, biggestGap), [biggestGap, researchProfile, state.competitors, state.industry, state.scores]);
   const coreSwotItems = useMemo(() => getCoreSwotItems(state.swot), [state.swot]);
   const scmRiskSummary = useMemo(() => buildScmRiskSummary(state.suppliers), [state.suppliers]);
   const highRiskSuppliers = scmRiskSummary.highRiskNodes;
@@ -1736,15 +1761,17 @@ function App() {
   const showSolarInverterComparison = researchProfile.label === "태양광 인버터·전력변환";
   const validCompetitors = useMemo(() => state.competitors.filter((competitor) => competitor.name.trim()), [state.competitors]);
   const competitorAxisScores = useMemo(() => buildCompetitorAxisScores(researchProfile, validCompetitors, state.companyName, state.industry), [researchProfile, state.companyName, state.industry, validCompetitors]);
-  const axisDetails = useMemo(() => buildAxisDetails(state, researchProfile, competitorAxisScores, state.liveCompetitors), [competitorAxisScores, researchProfile, state]);
+  const axisDetails = useMemo(() => buildAxisDetails(state, researchProfile, competitorAxisScores, state.liveCompetitors), [competitorAxisScores, researchProfile, state.liveCompetitors, state.scores]);
   const axisWeights = useMemo(() => getPurposeAxisWeights(state.purpose, state.role), [state.purpose, state.role]);
   const scmCompetitorRows = useMemo(() => buildScmCompetitorRows(validCompetitors, competitorAxisScores, scmRiskSummary), [competitorAxisScores, scmRiskSummary, validCompetitors]);
   const scmFlow = useMemo(() => buildScmFlow(state.suppliers), [state.suppliers]);
-  const displayCandidates = state.competitorCandidates.length ? state.competitorCandidates : buildCandidates(validCompetitors, state.companyName, state.industry);
-  const executiveSummary = useMemo(() => getExecutiveSummary(state, scoreAverage, biggestGap, validCompetitors), [biggestGap, scoreAverage, state, validCompetitors]);
-  const departmentPlans = useMemo(() => buildDepartmentActionPlans(state, biggestGap, tows), [biggestGap, state, tows]);
-  const decisionAgendas = useMemo(() => buildDecisionAgendas(state, executiveSummary, departmentPlans), [departmentPlans, executiveSummary, state]);
-  const markdownReport = useMemo(() => buildMarkdownReport(state, scoreAverage, biggestGap, tows, departmentPlans, decisionAgendas), [biggestGap, decisionAgendas, departmentPlans, scoreAverage, state, tows]);
+  const displayCandidates = useMemo(
+    () => (state.competitorCandidates.length ? state.competitorCandidates : buildCandidates(validCompetitors, state.companyName, state.industry)),
+    [state.companyName, state.competitorCandidates, state.industry, validCompetitors],
+  );
+  const executiveSummary = useMemo(() => getExecutiveSummary(state, biggestGap, validCompetitors), [biggestGap, state.competitorCandidates, state.competitors, state.purpose, state.role, validCompetitors]);
+  const departmentPlans = useMemo(() => buildDepartmentActionPlans(state, biggestGap, tows), [biggestGap, state.industry, state.purpose, tows]);
+  const decisionAgendas = useMemo(() => buildDecisionAgendas(state, executiveSummary, departmentPlans), [departmentPlans, executiveSummary, state.purpose]);
   const tabs = [
     ["overview", ClipboardList, "개요"],
     ["scorecard", BarChart3, "6축 진단"],
@@ -1756,7 +1783,9 @@ function App() {
 
   useEffect(() => {
     if (!validCompetitors.length || (!state.industry.trim() && researchProfile === defaultResearchProfile)) return;
-    rememberCompetitorSignals(state.companyName, state.industry, researchProfile, validCompetitors);
+    // 학습 메모리도 localStorage 동기 쓰기이므로 입력이 멈춘 뒤 한 번만 기록한다.
+    const timer = window.setTimeout(() => rememberCompetitorSignals(state.companyName, state.industry, researchProfile, validCompetitors), 400);
+    return () => window.clearTimeout(timer);
   }, [researchProfile, state.companyName, state.industry, validCompetitors]);
 
   useEffect(() => {
@@ -2035,6 +2064,8 @@ function App() {
     URL.revokeObjectURL(link.href);
   };
   const exportMarkdown = () => {
+    // 보고서 본문은 화면에 쓰이지 않으므로 내보낼 때만 생성한다.
+    const markdownReport = buildMarkdownReport(state, scoreAverage, biggestGap, tows, departmentPlans, decisionAgendas);
     const blob = new Blob([markdownReport], { type: "text/markdown;charset=utf-8" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
