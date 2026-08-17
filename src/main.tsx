@@ -871,6 +871,9 @@ const solarInverterComparisonRows = [
   },
 ];
 
+// 이 비교표는 "당사" 행이 동양이엔피로 고정된 전용 표이므로 해당 회사를 분석할 때만 노출한다.
+const solarInverterOwnCompany = solarInverterComparisonRows.find((row) => row.role === "당사")?.company || "";
+
 const defaultResearchProfile: ResearchProfile = {
   label: "일반 제조·서비스",
   keywords: [],
@@ -1758,7 +1761,8 @@ function App() {
   const scmRiskSummary = useMemo(() => buildScmRiskSummary(state.suppliers), [state.suppliers]);
   const highRiskSuppliers = scmRiskSummary.highRiskNodes;
   const validActions = state.actions.filter((action) => action.task || action.owner || action.kpi || action.due);
-  const showSolarInverterComparison = researchProfile.label === "태양광 인버터·전력변환";
+  const showSolarInverterComparison = researchProfile.label === "태양광 인버터·전력변환"
+    && normalizeCompanyName(state.companyName) === normalizeCompanyName(solarInverterOwnCompany);
   const validCompetitors = useMemo(() => state.competitors.filter((competitor) => competitor.name.trim()), [state.competitors]);
   const competitorAxisScores = useMemo(() => buildCompetitorAxisScores(researchProfile, validCompetitors, state.companyName, state.industry), [researchProfile, state.companyName, state.industry, validCompetitors]);
   const axisDetails = useMemo(() => buildAxisDetails(state, researchProfile, competitorAxisScores, state.liveCompetitors), [competitorAxisScores, researchProfile, state.liveCompetitors, state.scores]);
