@@ -2,8 +2,9 @@ import { StrictMode, useEffect, useMemo, useState, type CSSProperties, type Reac
 import { createRoot } from "react-dom/client";
 import { Background, Controls, Handle, MarkerType, Position, ReactFlow, type Edge, type Node, type NodeTypes } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { BarChart3, ClipboardList, Download, ExternalLink, Factory, FileText, Network, PanelLeftClose, PanelLeftOpen, Plus, Printer, RefreshCw, Search, ShieldCheck, Target, Trash2, TrendingUp, Users, Wand2 } from "lucide-react";
+import { BarChart3, ClipboardList, Download, ExternalLink, Factory, FileText, Network, PanelLeftClose, PanelLeftOpen, Plus, Printer, RefreshCw, Search, ShieldCheck, Target, Trash2, TrendingUp, Upload, Users, Wand2 } from "lucide-react";
 import { normalizeCompanyName, shouldAutoRefreshCompetitors } from "./competitors";
+import { hasUserInput, parseStateFile } from "./stateFile";
 import "./styles.css";
 
 type AxisKey = "strategy" | "profit" | "scm" | "market" | "operation" | "finance";
@@ -2004,6 +2005,27 @@ function App() {
     }
   };
 
+  // 현재 작업 내용이 있을 때만 확인을 받는다. 빈 화면에서는 불필요한 확인창을 띄우지 않는다.
+  const confirmDiscard = (message: string) => !hasUserInput({
+    companyName: state.companyName,
+    industry: state.industry,
+    competitors: state.competitors,
+    swotItems: swotCategories.flatMap(({ key }) => state.swot[key]),
+    suppliers: state.suppliers,
+    actions: state.actions,
+  }) || window.confirm(message);
+
+  const importJson = async (file: File | undefined) => {
+    if (!file) return;
+    const result = parseStateFile(await file.text());
+    if (!result.ok) {
+      window.alert(`가져오기를 취소했습니다.\n\n${result.message}`);
+      return;
+    }
+    if (!confirmDiscard(`${file.name} 파일로 현재 입력한 내용을 덮어씁니다. 계속하시겠습니까?`)) return;
+    setState(hydrateState(result.value as Partial<AppState>));
+  };
+
   const exportJson = () => {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
     const link = document.createElement("a");
@@ -2032,15 +2054,15 @@ function App() {
           {tabs.map(([id, Icon, label]) => <button className={active === id ? "active" : ""} key={id} onClick={() => setActive(id)} type="button" title={sidebarCollapsed ? label : undefined}><Icon size={18} /><span>{label}</span></button>)}
         </nav>
         <div className="sidebar-actions">
-          <button type="button" onClick={() => setState(clone(sampleState))} title={sidebarCollapsed ? "샘플" : undefined}><RefreshCw size={17} /><span>샘플</span></button>
-          <button type="button" onClick={() => setState(clone(defaultState))} title={sidebarCollapsed ? "초기화" : undefined}><Trash2 size={17} /><span>초기화</span></button>
+          <button type="button" onClick={() => { if (confirmDiscard("현재 입력한 내용을 샘플 데이터로 덮어씁니다. 계속하시겠습니까?")) setState(clone(sampleState)); }} title={sidebarCollapsed ? "샘플" : undefined}><RefreshCw size={17} /><span>샘플</span></button>
+          <button type="button" onClick={() => { if (confirmDiscard("현재 입력한 내용을 모두 지우고 초기 상태로 되돌립니다. 되돌릴 수 없으니 필요하면 먼저 JSON으로 내보내세요. 계속하시겠습니까?")) setState(clone(defaultState)); }} title={sidebarCollapsed ? "초기화" : undefined}><Trash2 size={17} /><span>초기화</span></button>
         </div>
       </aside>
 
       <main className="workspace">
         <header className="topbar">
           <div><p className="eyebrow">Executive Strategy Cockpit</p><h1>우리 회사의 경쟁력을 비교하고, 경영 실행 과제로 연결하세요</h1></div>
-          <div className="topbar-actions"><span className="save-pill">{saved ? "저장됨" : "저장 중"}</span><button type="button" onClick={exportJson} aria-label="JSON 내보내기"><Download size={19} /></button><button type="button" onClick={exportMarkdown} aria-label="Markdown 보고서 내보내기"><FileText size={19} /></button><button type="button" onClick={() => window.print()} aria-label="보고서 인쇄"><Printer size={19} /></button></div>
+          <div className="topbar-actions"><span className="save-pill">{saved ? "저장됨" : "저장 중"}</span><label title="JSON 가져오기"><Upload size={19} /><span className="visually-hidden">JSON 가져오기</span><input type="file" accept="application/json,.json" hidden onChange={(event) => { const input = event.target; const file = input.files?.[0]; input.value = ""; void importJson(file); }} /></label><button type="button" onClick={exportJson} aria-label="JSON 내보내기"><Download size={19} /></button><button type="button" onClick={exportMarkdown} aria-label="Markdown 보고서 내보내기"><FileText size={19} /></button><button type="button" onClick={() => window.print()} aria-label="보고서 인쇄"><Printer size={19} /></button></div>
         </header>
 
         {active === "overview" && (

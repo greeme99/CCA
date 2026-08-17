@@ -25,7 +25,8 @@ textarea {
   font: inherit;
 }
 
-button {
+button,
+.topbar-actions label {
   align-items: center;
   border: 0;
   border-radius: 8px;
@@ -35,6 +36,15 @@ button {
   justify-content: center;
   min-height: 40px;
   padding: 0 14px;
+}
+
+.visually-hidden {
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 button:disabled {
@@ -245,6 +255,7 @@ button:disabled {
 }
 
 .topbar-actions button,
+.topbar-actions label,
 .secondary {
   background: #ffffff;
   color: #0b1f3a;
