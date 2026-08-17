@@ -1251,6 +1251,18 @@ input[type="range"] {
   display: none;
 }
 
+.flow-loading {
+  align-items: center;
+  background: #f8fbff;
+  border-radius: 8px;
+  color: #64748b;
+  display: grid;
+  font-weight: 800;
+  justify-items: center;
+  min-height: 460px;
+  width: 100%;
+}
+
 .scm-flow-node {
   background: #ffffff;
   border: 2px solid #2563eb;

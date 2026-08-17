@@ -1,7 +1,6 @@
-import { StrictMode, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { lazy, StrictMode, Suspense, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { Background, Controls, Handle, MarkerType, Position, ReactFlow, type Edge, type Node, type NodeTypes } from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
+import type { Edge, MarkerType, Node } from "@xyflow/react";
 import { BarChart3, ClipboardList, Download, ExternalLink, Factory, FileText, Network, PanelLeftClose, PanelLeftOpen, Plus, Printer, RefreshCw, Search, ShieldCheck, Target, Trash2, TrendingUp, Upload, Users, Wand2 } from "lucide-react";
 import { normalizeCompanyName, shouldAutoRefreshCompetitors } from "./competitors";
 import { hasUserInput, parseStateFile } from "./stateFile";
@@ -276,7 +275,8 @@ function buildScmFlow(nodes: Supplier[]) {
       target: isCustomer || isInternal ? nodeId : "company",
       type: "smoothstep",
       animated: score >= 70,
-      markerEnd: { type: MarkerType.ArrowClosed, color: getScmLineColor(score) },
+      // MarkerType.ArrowClosed 값. 열거형을 런타임 import하면 React Flow가 초기 번들에 들어온다.
+      markerEnd: { type: "arrowclosed" as MarkerType, color: getScmLineColor(score) },
       style: { stroke: getScmLineColor(score), strokeWidth: Math.max(2, Math.min(9, Math.max(12, node.dependence) / 10)) },
     });
   });
@@ -1507,21 +1507,7 @@ function readState() {
   }
 }
 
-function ScmRiskNode({ data }: { data: ScmFlowData }) {
-  return (
-    <div className="scm-risk-flow-card">
-      <Handle type="target" position={Position.Left} />
-      <Handle type="target" position={Position.Top} />
-      <div><small>{data.nodeType}</small><strong>{data.label}</strong></div>
-      <span>{data.nodeType === "회사" ? "기준점" : `${data.riskScore}점`}</span>
-      {data.badges.length > 0 && <div className="flow-badge-list">{data.badges.slice(0, 2).map((badge) => <em key={badge}>{badge}</em>)}</div>}
-      <Handle type="source" position={Position.Right} />
-      <Handle type="source" position={Position.Bottom} />
-    </div>
-  );
-}
-
-const scmFlowNodeTypes: NodeTypes = { scmRisk: ScmRiskNode as never };
+const ScmFlowMap = lazy(() => import("./ScmFlowMap"));
 
 function Radar({ scores }: { scores: Record<AxisKey, Score> }) {
   const points = (kind: "own" | "peer") =>
@@ -2319,7 +2305,7 @@ function App() {
               <div className="scm-bridge-actions"><button className="secondary" type="button" onClick={syncScmScore}>6축 SCM 반영</button><button className="secondary" type="button" onClick={addScmWeakness}>SWOT 약점 추가</button><button className="primary" type="button" onClick={addScmAction}><Plus size={15} />실행 과제 전환</button></div>
             </section>
             <div className="scm-layout">
-              <div className="network-map reactflow-network"><ReactFlow nodes={scmFlow.nodes} edges={scmFlow.edges} nodeTypes={scmFlowNodeTypes} fitView nodesDraggable={false} nodesConnectable={false} elementsSelectable onNodeClick={(_, node) => focusScmNode(node.id)}><Background gap={18} size={1} /><Controls showInteractive={false} /></ReactFlow><div className="network-legend"><span><i className="low" />낮음</span><span><i className="mid" />보통</span><span><i className="high" />높음</span></div></div>
+              <div className="network-map reactflow-network"><Suspense fallback={<div className="flow-loading">SCM 네트워크 지도를 불러오는 중…</div>}><ScmFlowMap nodes={scmFlow.nodes} edges={scmFlow.edges} onNodeClick={focusScmNode} /></Suspense><div className="network-legend"><span><i className="low" />낮음</span><span><i className="mid" />보통</span><span><i className="high" />높음</span></div></div>
               <EditableList className="scm-node-list" title="SCM 노드 리스크" addLabel="노드" rows={state.suppliers} rowId={(_, index) => `scm-node-row-${index}`} rowClassName={(_, index) => selectedScmIndex === index ? "selected-row" : ""} onAdd={() => update({ suppliers: [...state.suppliers, createScmNode()] })} onRemove={(index) => update({ suppliers: state.suppliers.filter((_, rowIndex) => rowIndex !== index) })}>
                 {(supplier, index) => {
                   const riskScore = getScmRiskScore(supplier);
