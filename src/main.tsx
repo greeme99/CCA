@@ -1260,7 +1260,7 @@ function isCompanyNameMatch(targetName: string, corpName: string) {
 }
 
 async function resolveLiveCompetitors(competitors: Competitor[], apiKey: string) {
-  const corpCodes = await fetchOpenDartCompanies(apiKey);
+  const corpCodes = await fetchOpenDartCompanies();
   const liveCompanies = await Promise.all(
     corpCodes
       .filter((company) => competitors.some((competitor) => isCompanyNameMatch(competitor.name, company.corpName)))
@@ -1286,7 +1286,7 @@ async function resolveLiveCompetitors(competitors: Competitor[], apiKey: string)
 
 async function resolveLiveCompany(companyName: string, apiKey: string) {
   if (!companyName.trim()) return undefined;
-  const corpCodes = await fetchOpenDartCompanies(apiKey);
+  const corpCodes = await fetchOpenDartCompanies();
   const company = corpCodes.find((corpCode) => isCompanyNameMatch(companyName, corpCode.corpName));
   return company ? fetchOpenDartCompanyOverview(apiKey, company) : undefined;
 }
@@ -1372,8 +1372,8 @@ function buildDartKosisScores(
   const coverageBoost = Math.min(1, Math.floor(Math.max(1, competitors.length) / 4));
   const ownLiveBoost = ownCompany ? 1 : 0;
   const kosisWeights = getKosisAxisWeights(industry, purpose);
-  const sourceLabel = liveCompanies.length ? `DART ${isLocalHost ? "공시목록/회사개황" : "배포 캐시"} ${liveCompanies.length}개 매칭` : "DART 직접 매칭 없음";
-  const ownSourceLabel = ownCompany ? `DART ${isLocalHost ? "회사개황" : "배포 캐시"} 확인` : "회사명 직접 매칭 없음";
+  const sourceLabel = liveCompanies.length ? `DART 기업목록에서 경쟁사 ${liveCompanies.length}개 매칭` : "DART 직접 매칭 없음";
+  const ownSourceLabel = ownCompany ? "DART 기업목록에서 회사명 확인" : "회사명 직접 매칭 없음";
 
   return Object.fromEntries(
     axes.map((axis) => {
@@ -1432,50 +1432,33 @@ function hydrateState(saved: Partial<AppState>): AppState {
   };
 }
 
-async function fetchOpenDartCompanies(apiKey: string) {
-  if (!isLocalHost) {
-    const response = await fetch(dartCacheUrl, { cache: "no-store" });
-    if (!response.ok) {
-      throw new Error(`DART 배포 캐시 조회 실패 (${response.status})`);
-    }
-    const data = await response.json();
-    return ((data.companies || []) as LiveCompany[]).filter((company) => company.corpName);
+async function loadDartCompanies() {
+  const response = await fetch(dartCacheUrl);
+  if (!response.ok) {
+    throw new Error(`DART 기업목록 조회 실패 (${response.status})`);
   }
-
-  const endDate = new Date();
-  const startDate = new Date(endDate);
-  startDate.setMonth(endDate.getMonth() - 3);
-  const formatDate = (date: Date) => date.toISOString().slice(0, 10).replaceAll("-", "");
-  const companies = new Map<string, LiveCompany>();
-
-  for (let page = 1; page <= 5; page += 1) {
-    const url = new URL("/api/opendart/list", window.location.origin);
-    url.searchParams.set("bgn_de", formatDate(startDate));
-    url.searchParams.set("end_de", formatDate(endDate));
-    url.searchParams.set("corp_cls", "Y");
-    url.searchParams.set("page_no", String(page));
-    url.searchParams.set("page_count", "100");
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`OpenDART 공시목록 조회 실패 (${response.status})`);
-    }
-    const data = await response.json();
-    if (data.status && data.status !== "000" && data.status !== "013") {
-      throw new Error(data.message || "OpenDART API 오류");
-    }
-    for (const item of data.list || []) {
-      if (!companies.has(item.corp_code)) {
-        companies.set(item.corp_code, {
-          corpCode: item.corp_code || "",
-          corpName: item.corp_name || "",
-          stockCode: item.stock_code || "",
-          modifyDate: item.rcept_dt || "",
-        });
-      }
-    }
+  const data = await response.json();
+  const companies = ((data.companies || []) as LiveCompany[])
+    .filter((company) => company.corpCode && company.corpName)
+    // 구버전 캐시는 industryCode에 업종 설명문을 담았다. "업종코드 일치" 판정이 잘못되지 않도록 숫자 코드만 인정한다.
+    .map((company) => (company.industryCode && !/^\d+$/.test(company.industryCode) ? { ...company, industryCode: "" } : company));
+  if (!companies.length) {
+    throw new Error("DART 기업목록이 비어 있습니다. OpenDART 키를 설정하고 node scripts/prefetch-opendart.mjs를 실행하세요.");
   }
+  return companies;
+}
 
-  return Array.from(companies.values()).filter((company) => company.corpCode && company.corpName);
+// 전체 기업목록은 세션 중 바뀌지 않으므로 한 번만 받아 재사용한다.
+let dartCompaniesRequest: Promise<LiveCompany[]> | undefined;
+
+function fetchOpenDartCompanies() {
+  if (!dartCompaniesRequest) {
+    dartCompaniesRequest = loadDartCompanies().catch((error) => {
+      dartCompaniesRequest = undefined;
+      throw error;
+    });
+  }
+  return dartCompaniesRequest;
 }
 
 async function fetchOpenDartCompanyOverview(apiKey: string, company: LiveCompany): Promise<LiveCompany> {
@@ -1877,18 +1860,6 @@ function App() {
   const researchCompetitors = async () => {
     const suggestedCompetitors = researchProfile.competitors;
     const openDartKey = envOpenDartKey;
-    const canUseDartData = !isLocalHost || Boolean(openDartKey);
-    if (!canUseDartData) {
-      setState((current) => ({
-        ...current,
-        competitors: suggestedCompetitors,
-        competitorsAuto: true,
-        liveCompetitors: [],
-        competitorCandidates: buildCandidates(suggestedCompetitors, current.companyName, current.industry, "업종 키워드"),
-        researchStatus: `${current.companyName || "우리회사"} 기준 Top5 경쟁사를 제안했습니다. 로컬 .env에 DART 키가 없어 업종 키워드와 KOSIS 산업통계 관점의 비교 가능성을 기준으로 선정했습니다.`,
-      }));
-      return;
-    }
 
     setState((current) => ({
       ...current,
@@ -1896,13 +1867,11 @@ function App() {
       competitorsAuto: true,
       competitorCandidates: buildCandidates(suggestedCompetitors, current.companyName, current.industry, "업종 키워드"),
       liveCompetitors: [],
-      researchStatus: isLocalHost
-        ? `${current.companyName || "우리회사"} 기준 Top5 경쟁사를 조사 중입니다. DART 공시목록·회사개황과 KOSIS 산업통계 관점을 함께 사용합니다.`
-        : `${current.companyName || "우리회사"} 기준 Top5 경쟁사를 조사 중입니다. 배포 환경에서는 GitHub Actions가 미리 생성한 DART 공시 캐시와 KOSIS 산업통계 관점을 함께 사용합니다.`,
+      researchStatus: `${current.companyName || "우리회사"} 기준 Top5 경쟁사를 조사 중입니다. DART 전체 기업목록과 업종 관점을 함께 사용합니다.`,
     }));
 
     try {
-      const corpCodes = await fetchOpenDartCompanies(openDartKey);
+      const corpCodes = await fetchOpenDartCompanies();
       const targetNames = suggestedCompetitors.map((competitor) => competitor.name.replace(/\s/g, ""));
       const matched = corpCodes
         .filter((company) => targetNames.some((name) => isCompanyNameMatch(name, company.corpName)))
@@ -1928,8 +1897,8 @@ function App() {
         liveCompetitors: liveCompanies,
         competitorCandidates: candidates,
         researchStatus: liveCompanies.length
-          ? `${state.companyName || "우리회사"} 기준 Top5 경쟁사 중 DART ${isLocalHost ? "공시/회사개황" : "배포 캐시"}에서 ${liveCompanies.length}개 회사를 확인했습니다.${industryMatchCount ? ` 이 중 ${industryMatchCount}개사는 ${ownCompany?.industryCode ? `업종코드 ${ownCompany.industryCode}` : "동일 업종코드"}가 일치해 등록 데이터 기준으로 직접 비교가 가능합니다.` : " KOSIS 산업통계는 시장규모·업종 추세를 보정하는 근거로 함께 사용합니다."}`
-          : `${state.companyName || "우리회사"} 기준으로 DART 공시목록 직접 매칭이 어려워 업종 키워드와 KOSIS 산업분류 관점으로 Top5 경쟁사를 제안했습니다.`,
+          ? `${state.companyName || "우리회사"} 기준 Top5 경쟁사 중 DART 기업목록에서 ${liveCompanies.length}개 회사를 확인했습니다.${industryMatchCount ? ` 이 중 ${industryMatchCount}개사는 ${ownCompany?.industryCode ? `업종코드 ${ownCompany.industryCode}` : "동일 업종코드"}가 일치해 등록 데이터 기준으로 직접 비교가 가능합니다.` : " KOSIS 산업통계는 시장규모·업종 추세를 보정하는 근거로 함께 사용합니다."}`
+          : `${state.companyName || "우리회사"} 기준으로 DART 기업목록 직접 매칭이 어려워 업종 키워드 관점으로 Top5 경쟁사를 제안했습니다.`,
       }));
     } catch (error) {
       setState((current) => ({
@@ -1949,7 +1918,6 @@ function App() {
     const baseCompetitors = validCompetitors.length ? validCompetitors : researchProfile.competitors;
     const baseCompetitorsAuto = validCompetitors.length ? state.competitorsAuto : true;
     const openDartKey = envOpenDartKey;
-    const canUseDartData = !isLocalHost || Boolean(openDartKey);
 
     setIsComparing(true);
     setState((current) => ({
@@ -1959,17 +1927,15 @@ function App() {
       liveCompetitors: [],
       competitorCandidates: current.competitorCandidates.length
         ? current.competitorCandidates
-        : buildCandidates(baseCompetitors, current.companyName, current.industry, canUseDartData ? "DART/KOSIS" : "업종 키워드"),
-      researchStatus: canUseDartData
-        ? `${current.companyName || "우리회사"} 기준 경쟁력 비교를 진행 중입니다. DART ${isLocalHost ? "실시간 공시목록과" : "배포 캐시와"} KOSIS 업종 관점으로 6축 경쟁사 평균을 산정합니다.`
-        : `${current.companyName || "우리회사"} 기준 경쟁력 비교를 진행 중입니다. 로컬 DART 키가 없어 KOSIS 업종 관점과 입력된 경쟁사 정보로 비교합니다.`,
+        : buildCandidates(baseCompetitors, current.companyName, current.industry, "DART/KOSIS"),
+      researchStatus: `${current.companyName || "우리회사"} 기준 경쟁력 비교를 진행 중입니다. DART 전체 기업목록과 업종 관점으로 6축 경쟁사 평균을 산정합니다.`,
     }));
 
     try {
-      const liveResults = canUseDartData ? await resolveLiveCompetitors(baseCompetitors, openDartKey) : [];
+      const liveResults = await resolveLiveCompetitors(baseCompetitors, openDartKey);
       const nextCompetitors = liveResults.length ? liveResults.map((result) => result.competitor) : baseCompetitors;
       const liveCompanies = liveResults.map((result) => result.liveCompany).filter(Boolean) as LiveCompany[];
-      const ownCompany = canUseDartData ? await resolveLiveCompany(state.companyName, openDartKey) : undefined;
+      const ownCompany = await resolveLiveCompany(state.companyName, openDartKey);
       const nextScores = buildDartKosisScores(
         state.scores,
         researchProfile,
@@ -1986,11 +1952,11 @@ function App() {
         competitors: nextCompetitors,
         competitorsAuto: baseCompetitorsAuto,
         liveCompetitors: liveCompanies,
-        competitorCandidates: buildCandidates(nextCompetitors, current.companyName, current.industry, canUseDartData ? "DART/KOSIS" : "업종 키워드", liveCompanies, ownCompany),
+        competitorCandidates: buildCandidates(nextCompetitors, current.companyName, current.industry, "DART/KOSIS", liveCompanies, ownCompany),
         scores: nextScores,
         researchStatus: liveCompanies.length
-          ? `${current.companyName || "우리회사"} 기준 경쟁력 비교를 완료했습니다. DART ${isLocalHost ? "공시목록/회사개황" : "배포 캐시"}에서 경쟁사 ${liveCompanies.length}개${ownCompany ? "와 우리회사" : ""}를 확인했고, KOSIS ${current.industry || researchProfile.label} 업종 관점으로 우리회사와 경쟁사 평균을 함께 보정했습니다.${ownCompany?.industryCode ? ` 업종코드 ${ownCompany.industryCode} 일치 후보는 추천 목록 상단에 우선 배치했습니다.` : ""}`
-          : `${current.companyName || "우리회사"} 기준 경쟁력 비교를 완료했습니다. DART 직접 매칭이 부족해 회사명·산업·분석목적과 KOSIS ${current.industry || researchProfile.label} 업종 관점으로 우리회사와 경쟁사 평균을 산정했습니다.`,
+          ? `${current.companyName || "우리회사"} 기준 경쟁력 비교를 완료했습니다. DART 기업목록에서 경쟁사 ${liveCompanies.length}개${ownCompany ? "와 우리회사" : ""}를 확인했고, KOSIS ${current.industry || researchProfile.label} 업종 관점으로 우리회사와 경쟁사 평균을 함께 보정했습니다.${ownCompany?.industryCode ? ` 업종코드 ${ownCompany.industryCode} 일치 후보는 추천 목록 상단에 우선 배치했습니다.` : ""}`
+          : `${current.companyName || "우리회사"} 기준 경쟁력 비교를 완료했습니다. DART 기업목록 직접 매칭이 부족해 회사명·산업·분석목적과 ${current.industry || researchProfile.label} 업종 관점으로 우리회사와 경쟁사 평균을 산정했습니다.`,
         actions: current.actions.some((action) => action.task)
           ? current.actions
           : [
@@ -2129,9 +2095,7 @@ function App() {
               </div>
               <div className="research-summary">
                 <strong>DART·KOSIS 기반 조사</strong>
-                <p>{state.researchStatus || (isLocalHost
-                  ? `경쟁사 조사를 누르면 입력한 회사명을 기준으로 DART 공시목록·회사개황과 KOSIS 산업통계 관점의 Top5 경쟁사를 제안합니다. API 키 상태: DART ${envOpenDartKey ? "연결됨" : "미입력"}, KOSIS ${envKosisKey ? "연결됨" : "미입력"}`
-                  : "경쟁사 조사를 누르면 입력한 회사명을 기준으로 GitHub Actions가 미리 생성한 DART 공시 캐시와 KOSIS 산업통계 관점의 Top5 경쟁사를 제안합니다.")}</p>
+                <p>{state.researchStatus || `경쟁사 조사를 누르면 입력한 회사명을 기준으로 DART 전체 기업목록과 업종 관점의 Top5 경쟁사를 제안합니다.${isLocalHost ? ` 로컬 DART 키${envOpenDartKey ? "가 연결되어" : "를 넣으면"} 대표자·업종코드까지 보강합니다.` : ""}`}</p>
               </div>
               {displayCandidates.length > 0 && (
                 <div className="candidate-panel">

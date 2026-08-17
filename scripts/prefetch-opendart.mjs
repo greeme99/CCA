@@ -1,50 +1,22 @@
 import { mkdir, writeFile } from "node:fs/promises";
+import { parseCorpCodeXml, readSingleEntryZip, selectCacheCompanies } from "./dartCorpCode.mjs";
 
 const apiKey = process.env.VITE_OPENDART_API_KEY || process.env.OPENDART_API_KEY || "";
 const outputPath = new URL("../public/data/opendart-companies.json", import.meta.url);
-const seedCompanies = [
-  { corpName: "드림텍", stockCode: "192650", industryCode: "전자부품·PBA 모듈" },
-  { corpName: "파트론", stockCode: "091700", industryCode: "스마트폰 부품·카메라모듈·광학부품" },
-  { corpName: "에스코넥", stockCode: "096630", industryCode: "스마트폰 쉴드캔·금속부품" },
-  { corpName: "원진", stockCode: "", industryCode: "쉴드캔 대체 공급처·금속 정밀부품" },
-  { corpName: "해성옵틱스", stockCode: "076610", industryCode: "카메라 모듈·광학 부품" },
-  { corpName: "엠씨넥스", stockCode: "097520", industryCode: "스마트폰 카메라 모듈·광학부품" },
-  { corpName: "비에이치", stockCode: "090460", industryCode: "FPCB·전자부품" },
-  { corpName: "인터플렉스", stockCode: "051370", industryCode: "연성인쇄회로기판" },
-  { corpName: "대덕전자", stockCode: "353200", industryCode: "PCB·반도체 패키지기판" },
-  { corpName: "에스맥", stockCode: "097780", industryCode: "터치스크린 패널·모듈" },
-  { corpName: "시노펙스", stockCode: "025320", industryCode: "ITO 필름·터치스크린" },
-  { corpName: "미성포리테크", stockCode: "", industryCode: "터치스크린 양산·납품" },
-  { corpName: "디지텍시스템즈", stockCode: "", industryCode: "강화유리·OCA·터치패널" },
-  { corpName: "이엘케이", stockCode: "", industryCode: "세트업체 대응형 터치패널" },
-  { corpName: "효성중공업", stockCode: "298040", industryCode: "대용량 태양광 인버터·전력기기" },
-  { corpName: "OCI파워", stockCode: "", industryCode: "대용량 태양광 인버터·발전 프로젝트" },
-  { corpName: "다쓰테크", stockCode: "", industryCode: "태양광 인버터 전문" },
-  { corpName: "윌링스", stockCode: "313760", industryCode: "태양광 인버터·ESS PCS" },
-  { corpName: "신성이엔지", stockCode: "011930", industryCode: "태양광 인버터·설치형 신재생 솔루션" },
-  { corpName: "카코뉴에너지", stockCode: "", industryCode: "태양광 인버터 제조·2차 후보" },
-  { corpName: "헥스파워시스템", stockCode: "", industryCode: "계통연계 PV 인버터·2차 후보" },
-  { corpName: "LS ELECTRIC", stockCode: "010120", industryCode: "전력기기·태양광/ESS PCS 인접 벤치마크" },
+
+// 프로파일에 등장하는 비상장 벤치마크. 상장사는 corpCode.xml에서 전부 가져오므로 여기 적지 않는다.
+const unlistedBenchmarkNames = [
+  "원진",
+  "미성포리테크",
+  "디지텍시스템즈",
+  "이엘케이",
+  "OCI파워",
+  "다쓰테크",
+  "카코뉴에너지",
+  "헥스파워시스템",
+  "넥스콘테크놀러지",
+  "기린전자",
 ];
-
-function formatDate(date) {
-  return date.toISOString().slice(0, 10).replaceAll("-", "");
-}
-
-function mergeSeedCompanies(companies) {
-  const existingNames = new Set(Array.from(companies.values()).map((company) => company.corpName));
-  for (const company of seedCompanies) {
-    if (existingNames.has(company.corpName)) continue;
-    const seedCode = `seed-${company.stockCode || company.corpName}`;
-    companies.set(seedCode, {
-      corpCode: seedCode,
-      corpName: company.corpName,
-      stockCode: company.stockCode,
-      modifyDate: "seed",
-      industryCode: company.industryCode,
-    });
-  }
-}
 
 async function main() {
   await mkdir(new URL("../public/data/", import.meta.url), { recursive: true });
@@ -55,49 +27,37 @@ async function main() {
     return;
   }
 
-  const endDate = new Date();
-  const startDate = new Date(endDate);
-  startDate.setMonth(endDate.getMonth() - 3);
-  const companies = new Map();
+  const url = new URL("https://opendart.fss.or.kr/api/corpCode.xml");
+  url.searchParams.set("crtfc_key", apiKey);
 
-  for (let page = 1; page <= 10; page += 1) {
-    const url = new URL("https://opendart.fss.or.kr/api/list.json");
-    url.searchParams.set("crtfc_key", apiKey);
-    url.searchParams.set("bgn_de", formatDate(startDate));
-    url.searchParams.set("end_de", formatDate(endDate));
-    url.searchParams.set("corp_cls", "Y");
-    url.searchParams.set("page_no", String(page));
-    url.searchParams.set("page_count", "100");
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`OpenDART request failed: ${response.status}`);
-    }
-    const data = await response.json();
-    if (data.status && data.status !== "000" && data.status !== "013") {
-      throw new Error(data.message || "OpenDART API error");
-    }
-
-    for (const item of data.list || []) {
-      if (!companies.has(item.corp_code)) {
-        companies.set(item.corp_code, {
-          corpCode: item.corp_code || "",
-          corpName: item.corp_name || "",
-          stockCode: item.stock_code || "",
-          modifyDate: item.rcept_dt || "",
-        });
-      }
-    }
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`OpenDART corpCode request failed: ${response.status}`);
   }
 
-  mergeSeedCompanies(companies);
+  const body = Buffer.from(await response.arrayBuffer());
+  // 키가 잘못되면 ZIP 대신 status/message가 담긴 XML이 온다.
+  if (body.subarray(0, 2).toString("latin1") !== "PK") {
+    const text = body.toString("utf8").slice(0, 300);
+    throw new Error(`OpenDART returned a non-ZIP response: ${text}`);
+  }
+
+  const companies = parseCorpCodeXml(readSingleEntryZip(body));
+  if (!companies.length) {
+    throw new Error("OpenDART corpCode.xml parsed to zero companies.");
+  }
+
+  const selected = selectCacheCompanies(companies, unlistedBenchmarkNames);
+  const listedCount = selected.filter((company) => company.stockCode).length;
 
   await writeFile(outputPath, JSON.stringify({
     generatedAt: new Date().toISOString(),
-    source: "OpenDART disclosure list with benchmark company seeds",
-    companies: Array.from(companies.values()),
+    source: "OpenDART corpCode.xml (listed companies and unlisted benchmark companies)",
+    totalRegistered: companies.length,
+    companies: selected,
   }, null, 2));
-  console.log(`Wrote ${companies.size} OpenDART companies.`);
+
+  console.log(`Wrote ${selected.length} companies (listed ${listedCount}, unlisted benchmarks ${selected.length - listedCount}) out of ${companies.length} registered.`);
 }
 
 main().catch((error) => {

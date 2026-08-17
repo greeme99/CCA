@@ -40,19 +40,6 @@ function apiProxyPlugin(): Plugin {
         try {
           const url = new URL(request.url, "http://localhost");
 
-          if (url.pathname === "/api/opendart/list") {
-            if (!openDartKey) {
-              sendJson(response, 400, { status: "NO_KEY", message: "OpenDART API key is missing." });
-              return;
-            }
-            url.searchParams.set("crtfc_key", openDartKey);
-            const upstream = await fetchWithTimeout(`https://opendart.fss.or.kr/api/list.json?${url.searchParams.toString()}`);
-            response.statusCode = upstream.status;
-            response.setHeader("Content-Type", upstream.headers.get("content-type") || "application/json; charset=utf-8");
-            response.end(await upstream.text());
-            return;
-          }
-
           if (url.pathname === "/api/opendart/company") {
             if (!openDartKey) {
               sendJson(response, 400, { status: "NO_KEY", message: "OpenDART API key is missing." });
