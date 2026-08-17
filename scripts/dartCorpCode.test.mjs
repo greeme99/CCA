@@ -96,6 +96,19 @@ describe("배포 캐시 대상 선별", () => {
     expect(names).not.toContain("이름없는비상장");
   });
 
+  it("법인격 표기가 달라도 벤치마크로 인정한다", () => {
+    const withParen = parseCorpCodeXml(xml.replace("<corp_name>㈜원진</corp_name>", "<corp_name>(주)원진</corp_name>"));
+    const names = selectCacheCompanies(withParen, ["원진"]).map((company) => company.corpName);
+
+    expect(names).toContain("(주)원진");
+  });
+
+  it("이름이 앞부분만 같은 다른 법인은 벤치마크로 인정하지 않는다", () => {
+    const names = selectCacheCompanies(companies, ["이름없는"]).map((company) => company.corpName);
+
+    expect(names).not.toContain("이름없는비상장");
+  });
+
   it("같은 회사를 중복으로 담지 않는다", () => {
     const selected = selectCacheCompanies(companies, ["삼성전자"]);
 

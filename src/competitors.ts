@@ -22,8 +22,21 @@ export type AutoRefreshInput = {
 export const normalizeCompanyName = (value: string) =>
   value
     .toLowerCase()
+    // 괄호를 지우기 전에 (주)·(유) 같은 법인격 표기를 먼저 제거한다. 순서가 바뀌면 "(주)원진"이 "주원진"이 된다.
+    .replace(/\((주|유|재|사|합)\)/g, "")
     .replace(/주식회사|유한회사|합자회사|합명회사|재단법인|사단법인/g, "")
     .replace(/[()\[\]\s㈜.]/g, "");
+
+/**
+ * 회사명이 같은 법인을 가리키는지 판정한다. 표기 차이는 정규화로 흡수하고, 그 외에는 정확히 일치해야 한다.
+ * 접두 일치를 허용하면 "한화솔루션"이 "한화"에, "삼성전자"가 "삼성전자서비스"에 매칭되어
+ * 경쟁사 이름이 다른 법인 이름으로 덮어써진다.
+ */
+export function isCompanyNameMatch(targetName: string, corpName: string) {
+  const target = normalizeCompanyName(targetName);
+  const corp = normalizeCompanyName(corpName);
+  return Boolean(target) && target === corp;
+}
 
 const legacyGenericCompetitorNames = new Set(["상장 동종업계 1위", "고성장 비상장사", "원가 경쟁사", "기술 차별화 기업", "대체재 기업"]);
 

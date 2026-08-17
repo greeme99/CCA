@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shouldAutoRefreshCompetitors, type AutoRefreshInput, type CompetitorProfileLike, type NamedRow } from "./competitors";
+import { isCompanyNameMatch, shouldAutoRefreshCompetitors, type AutoRefreshInput, type CompetitorProfileLike, type NamedRow } from "./competitors";
 
 const profile: CompetitorProfileLike = {
   competitors: [
@@ -30,6 +30,36 @@ function decide(patch: Partial<AutoRefreshInput> = {}) {
     ...patch,
   });
 }
+
+describe("회사명 매칭", () => {
+  it("표기가 같으면 매칭한다", () => {
+    expect(isCompanyNameMatch("이랜텍", "이랜텍")).toBe(true);
+  });
+
+  it("법인격 표기 차이를 흡수한다", () => {
+    expect(isCompanyNameMatch("원진", "㈜원진")).toBe(true);
+    expect(isCompanyNameMatch("원진", "(주)원진")).toBe(true);
+    expect(isCompanyNameMatch("원진", "주식회사 원진")).toBe(true);
+    expect(isCompanyNameMatch("주식회사 원진", "원진")).toBe(true);
+  });
+
+  it("공백·대소문자 차이를 흡수한다", () => {
+    expect(isCompanyNameMatch("SK 하이닉스", "SK하이닉스")).toBe(true);
+    expect(isCompanyNameMatch("db하이텍", "DB하이텍")).toBe(true);
+  });
+
+  it("이름이 앞부분만 같은 다른 법인은 매칭하지 않는다", () => {
+    expect(isCompanyNameMatch("한화솔루션", "한화")).toBe(false);
+    expect(isCompanyNameMatch("삼성전자", "삼성전자서비스")).toBe(false);
+    expect(isCompanyNameMatch("파트론", "파트론오토모티브")).toBe(false);
+    expect(isCompanyNameMatch("LG전자", "LG생활건강")).toBe(false);
+  });
+
+  it("빈 이름은 매칭하지 않는다", () => {
+    expect(isCompanyNameMatch("", "원진")).toBe(false);
+    expect(isCompanyNameMatch("원진", "   ")).toBe(false);
+  });
+});
 
 describe("경쟁사 목록 자동 갱신 판정", () => {
   it("사용자가 경쟁사 회사명을 수정한 목록은 자동 갱신 대상이 아니다", () => {

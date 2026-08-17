@@ -2,7 +2,7 @@ import { lazy, StrictMode, Suspense, useEffect, useMemo, useRef, useState, type 
 import { createRoot } from "react-dom/client";
 import type { Edge, MarkerType, Node } from "@xyflow/react";
 import { BarChart3, ClipboardList, Download, ExternalLink, Factory, FileText, Network, PanelLeftClose, PanelLeftOpen, Plus, Printer, RefreshCw, Search, ShieldCheck, Target, Trash2, TrendingUp, Upload, Users, Wand2 } from "lucide-react";
-import { normalizeCompanyName, shouldAutoRefreshCompetitors } from "./competitors";
+import { isCompanyNameMatch, normalizeCompanyName, shouldAutoRefreshCompetitors } from "./competitors";
 import { hasUserInput, parseStateFile } from "./stateFile";
 import "./styles.css";
 
@@ -1195,14 +1195,6 @@ function needsCompetitorRefresh(competitors: Array<{ name: string }>, candidates
     competitorsAuto,
     placeholderNames: defaultGenericCompetitorNames,
   });
-}
-
-function isCompanyNameMatch(targetName: string, corpName: string) {
-  const target = normalizeCompanyName(targetName);
-  const corp = normalizeCompanyName(corpName);
-  if (!target || !corp) return false;
-  if (target === corp) return true;
-  return target.length >= 4 && (corp.startsWith(target) || target.startsWith(corp));
 }
 
 async function resolveLiveCompetitors(competitors: Competitor[], apiKey: string) {

@@ -10,6 +10,8 @@ import { inflateRawSync } from "node:zlib";
 const normalizeName = (value) =>
   value
     .toLowerCase()
+    // 괄호를 지우기 전에 (주)·(유) 같은 법인격 표기를 먼저 제거한다. 순서가 바뀌면 "(주)원진"이 "주원진"이 된다.
+    .replace(/\((주|유|재|사|합)\)/g, "")
     .replace(/주식회사|유한회사|합자회사|합명회사|재단법인|사단법인/g, "")
     .replace(/[()\[\]\s㈜.]/g, "");
 
