@@ -29,7 +29,6 @@ function apiProxyPlugin(): Plugin {
     configureServer(server) {
       const env = loadEnv(server.config.mode, server.config.root, "");
       const openDartKey = env.VITE_OPENDART_API_KEY || env.OPENDART_API_KEY || "";
-      const kosisKey = env.VITE_KOSIS_API_KEY || env.KOSIS_API_KEY || "";
 
       server.middlewares.use(async (request, response, next) => {
         if (!request.url?.startsWith("/api/")) {
@@ -53,25 +52,7 @@ function apiProxyPlugin(): Plugin {
             return;
           }
 
-          if (url.pathname === "/api/kosis/proxy") {
-            if (!kosisKey) {
-              sendJson(response, 400, { status: "NO_KEY", message: "KOSIS API key is missing." });
-              return;
-            }
-            const target = url.searchParams.get("target");
-            if (!target) {
-              sendJson(response, 400, { status: "NO_TARGET", message: "KOSIS target URL is missing." });
-              return;
-            }
-            const targetUrl = new URL(target);
-            targetUrl.searchParams.set("apiKey", kosisKey);
-            const upstream = await fetchWithTimeout(targetUrl);
-            response.statusCode = upstream.status;
-            response.setHeader("Content-Type", upstream.headers.get("content-type") || "application/json; charset=utf-8");
-            response.end(await upstream.text());
-            return;
-          }
-
+          // KOSIS 업종 통계는 scripts/prefetch-kosis.mjs가 빌드 시 정적 캐시로 만든다. 런타임 프록시는 쓰지 않는다.
           sendJson(response, 404, { status: "NOT_FOUND", message: "Unknown local API route." });
         } catch (error) {
           sendJson(response, 500, { status: "PROXY_ERROR", message: error instanceof Error ? error.message : "Proxy request failed." });

@@ -1,0 +1,37 @@
+{
+  "//": "KOSIS 통계표는 표마다 분류코드(objL1)와 항목(itmId)이 달라 URL을 직접 지정한다. KOSIS 로그인 후 통계표 화면의 [OpenAPI] > URL 생성으로 만든 주소를 url에 붙인다. apiKey와 format은 prefetch가 덮어쓰므로 그대로 두어도 된다.",
+  "//keywords": "분석 화면의 산업 입력과 업종 프로파일 라벨에 이 키워드가 들어가면 해당 계열을 쓴다. default: true 계열은 매칭이 없을 때 쓰인다.",
+  "series": [
+    {
+      "id": "manufacturing-production",
+      "label": "제조업 생산지수",
+      "keywords": [],
+      "default": true,
+      "url": ""
+    },
+    {
+      "id": "electronics-production",
+      "label": "전자부품·통신장비 생산지수",
+      "keywords": ["전자부품", "반도체", "PCB", "PBA", "터치스크린", "카메라모듈", "쉴드캔"],
+      "url": ""
+    },
+    {
+      "id": "battery-production",
+      "label": "이차전지·배터리팩 생산지수",
+      "keywords": ["배터리팩", "이차전지", "2차전지", "BMS", "ESS"],
+      "url": ""
+    },
+    {
+      "id": "electrical-equipment-production",
+      "label": "전기장비 생산지수",
+      "keywords": ["인버터", "전력변환", "PCS", "태양광", "전기장비"],
+      "url": ""
+    },
+    {
+      "id": "automotive-production",
+      "label": "자동차·트레일러 생산지수",
+      "keywords": ["자동차", "모빌리티", "전장"],
+      "url": ""
+    }
+  ]
+}

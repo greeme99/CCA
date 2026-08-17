@@ -10,12 +10,24 @@ API 키는 `.env`에 입력합니다.
 
 ```bash
 VITE_OPENDART_API_KEY=발급받은_OpenDART_키
-VITE_KOSIS_API_KEY=발급받은_KOSIS_키
+KOSIS_API_KEY=발급받은_KOSIS_키
 ```
 
-개발 서버는 `.env` 키를 사용해 `/api/opendart/list`, `/api/opendart/company`, `/api/kosis/proxy` 로컬 프록시를 제공합니다. 키를 수정한 뒤에는 서버를 재시작해야 합니다.
+브라우저 CORS 제한 때문에 외부 데이터는 모두 **빌드 시 정적 캐시로 만들어** 앱이 그 캐시만 읽습니다. 키는 스크립트 실행 시에만 쓰이고 배포 번들에는 포함되지 않습니다.
 
-GitHub Pages 배포판은 브라우저 CORS 제한을 피하기 위해 GitHub Actions에서 OpenDART 데이터를 미리 조회해 `public/data/opendart-companies.json` 정적 캐시로 생성합니다. API 키는 GitHub Actions Secret에만 저장하고 배포 번들에는 포함하지 않습니다.
+```bash
+# DART 전체 기업목록 캐시 (public/data/opendart-companies.json)
+node scripts/prefetch-opendart.mjs
+
+# KOSIS 업종 통계 캐시 (public/data/kosis-industry.json)
+node scripts/prefetch-kosis.mjs
+```
+
+KOSIS는 통계표마다 분류코드와 항목이 달라 요청 URL을 직접 지정합니다. KOSIS 통계표 화면의 `OpenAPI > URL 생성`으로 만든 주소를 `scripts/kosis-series.json`의 `url`에 넣으면 됩니다(`apiKey`와 `format`은 스크립트가 덮어씁니다). URL이 비어 있으면 KOSIS 수치를 쓰지 않고 업종 가중치(내부 규칙)만 사용하며, 화면에도 KOSIS를 근거로 표시하지 않습니다.
+
+개발 서버는 `.env`의 DART 키로 `/api/opendart/company` 로컬 프록시를 제공해 대표자·업종코드를 보강합니다. 키를 수정한 뒤에는 서버를 재시작해야 합니다.
+
+GitHub Actions는 배포 시 두 캐시를 다시 생성합니다. 저장소 Secret에 `VITE_OPENDART_API_KEY`와 `KOSIS_API_KEY`를 등록하세요. KOSIS 단계는 실패해도 배포를 막지 않습니다.
 
 ```bash
 npm install
@@ -27,11 +39,12 @@ npm run dev -- --host 127.0.0.1 --port 5173
 ## 주요 기능
 
 - 회사명, 산업, 분석 목적, 기간 입력
-- 로컬 개발 환경의 OpenDART 실시간 공시목록/회사개황 조회
-- GitHub Pages 배포 환경의 OpenDART 정적 캐시 기반 경쟁사 확인
-- 회사명 기준 Top5 경쟁사 제안과 선정사유 표시
+- DART 전체 기업목록(corpCode) 캐시 기반 경쟁사 확인 (상장사 전체 + 비상장 벤치마크)
+- KOSIS 업종 통계 연동: 최근 시점 수치와 전기 대비 증감률을 6축 시장·채널 축 보정 근거로 사용
+- 업종 기준 Top5 경쟁사 제안과 선정사유 표시
 - 수기 입력 경쟁사 기반 경쟁력 비교 자동 적용
 - 분석 목적, 기간, 경쟁사 벤치마크 입력
+- JSON 가져오기/내보내기, 초기화 전 확인
 - 경영자 관점 6축 점수화: 전략, 수익구조, SCM, 시장·채널, 조직·운영, 재무건전성
 - 레이더 차트로 자사와 경쟁사 평균 비교
 - SWOT 입력 후 TOWS 전략 초안 생성

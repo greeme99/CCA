@@ -589,6 +589,66 @@ textarea:focus {
   padding: 5px 8px;
 }
 
+.industry-stat-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-column: 1 / -1;
+  padding: 14px;
+}
+
+.industry-stat-figures {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.industry-stat-figures article {
+  background: #f8fbff;
+  border: 1px solid #d8e2ee;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.industry-stat-figures span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.industry-stat-figures strong {
+  color: #0b1f3a;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.industry-stat-figures small {
+  color: #475569;
+  font-size: 12px;
+}
+
+.industry-stat-panel p {
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.industry-stat-panel a {
+  align-items: center;
+  color: #1d4ed8;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  gap: 6px;
+  justify-self: start;
+  text-decoration: none;
+}
+
 .live-result-list {
   display: grid;
   gap: 8px;

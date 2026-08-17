@@ -32,6 +32,11 @@ jobs:
         run: node scripts/prefetch-opendart.mjs
         env:
           VITE_OPENDART_API_KEY: ${{ secrets.VITE_OPENDART_API_KEY }}
+      - name: Prefetch KOSIS industry statistics
+        run: node scripts/prefetch-kosis.mjs
+        continue-on-error: true
+        env:
+          KOSIS_API_KEY: ${{ secrets.KOSIS_API_KEY }}
       - name: Build
         run: npm run build
       - name: Upload artifact
