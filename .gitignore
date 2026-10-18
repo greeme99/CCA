@@ -5,3 +5,11 @@ dist/
 .env
 .env.local
 .env.*.local
+
+# Agent / Tooling local caches
+.agents/
+.claude/
+.claude-plugin/
+.codex/
+agent/
+CLAUDE.local.md
